@@ -3,7 +3,7 @@
 export const PRODUCT_NAME = 'Frama Investments Ltd';
 
 /** Primary tagline (UI, auth, footer). */
-export const TAGLINE = 'Daily Revenue. One Clear Picture.';
+export const TAGLINE = 'Daily Report. One Clear Picture.';
 
 /** Document title. */
 export const DOCUMENT_TITLE = `${PRODUCT_NAME} - ${TAGLINE}`;
@@ -12,7 +12,7 @@ export const DOCUMENT_TITLE = `${PRODUCT_NAME} - ${TAGLINE}`;
  * Hero / auth supporting sentence - describes the product in one line.
  */
 export const SUPPORTING_LINE =
-  'Frama Investments daily reporting keeps every branch - motels, bars, saunas and hostels - on one connected dashboard. Managers submit daily revenue with a handover receipt in seconds, and executives see the totals, status and trends across Rubaga, Kibuya and beyond in real time.';
+  'Frama Investments daily reporting keeps every branch - motels, bars, saunas and hostels - on one connected dashboard. Managers submit daily reports with a handover receipt in seconds, and executives see the totals, status and trends across Rubaga, Kibuya and beyond in real time.';
 
 export const COMPANY_NAME = 'Frama Investments Ltd';
 

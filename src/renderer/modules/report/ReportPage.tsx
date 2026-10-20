@@ -42,7 +42,7 @@ export default function ReportPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{user?.branch?.branch_name ?? 'Branch'} Report</h1>
-            <p className="mt-0.5 text-sm text-gray-500">Daily revenue report &middot; {user?.name}</p>
+            <p className="mt-0.5 text-sm text-gray-500">Daily Report &middot; {user?.name}</p>
           </div>
         </div>
 
