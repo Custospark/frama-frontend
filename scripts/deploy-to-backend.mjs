@@ -36,7 +36,10 @@ const DIST = resolve(FRONTEND_ROOT, 'dist', 'web');
 const APP_VERSION = JSON.parse(readFileSync(resolve(FRONTEND_ROOT, 'package.json'), 'utf8')).version;
 
 const API_DIR = '/home/u214605677/domains/frama-api.custospark.com';
-const WEB_DOCROOT = '/home/u214605677/domains/frama.custospark.com/public_html';
+// frama.custospark.com is a subdomain of the shared custospark.com domain, so
+// its document root is a subfolder of the shared docroot (Academy pattern),
+// not domains/<subdomain>/public_html (Custograde pattern).
+const WEB_DOCROOT = '/home/u214605677/domains/custospark.com/public_html/frama';
 
 const VARIANTS = {
   production: {
