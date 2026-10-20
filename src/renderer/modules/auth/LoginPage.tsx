@@ -69,7 +69,7 @@ export default function LoginPage() {
             onChange={(e) => setAccessCode(e.target.value)}
             required
             autoCapitalize="characters"
-            placeholder="Access code (e.g. RUBAGA or FRAMA)"
+            placeholder="Access code (e.g. FRAMA, EXEC, RUBAGA)"
             className={inputCls}
           />
         </div>
@@ -106,7 +106,7 @@ export default function LoginPage() {
       <div className="mt-6 rounded-xl border border-gray-100 bg-gray-50 p-4 text-center">
         <p className="text-xs text-gray-500">
           Managers use their <span className="font-semibold text-gray-700">branch code</span> ·
-          Executives &amp; admins use the <span className="font-semibold text-gray-700">org code</span>.
+          Executives &amp; admins use their own <span className="font-semibold text-gray-700">access code</span>.
         </p>
       </div>
     </AuthLayout>

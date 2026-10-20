@@ -65,6 +65,7 @@ export interface AuthUser {
   id: number;
   name: string;
   email: string | null;
+  access_code: string | null;
   role: UserRole;
   branch_id: number | null;
   is_active: boolean;

@@ -144,6 +144,7 @@ export function useDeleteBranch() {
 export interface UserPayload {
   name: string;
   role: UserRole;
+  access_code?: string | null;
   branch_id?: number | null;
   pin?: string;
 }

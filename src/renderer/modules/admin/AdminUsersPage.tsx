@@ -44,11 +44,12 @@ interface UserForm {
   id?: number;
   name: string;
   role: UserRole;
+  access_code: string;
   branch_id: string;
   pin: string;
 }
 
-const EMPTY_FORM: UserForm = { name: '', role: 'manager', branch_id: '', pin: '' };
+const EMPTY_FORM: UserForm = { name: '', role: 'manager', access_code: '', branch_id: '', pin: '' };
 
 export default function AdminUsersPage() {
   const { showToast } = useToast();
@@ -76,6 +77,7 @@ export default function AdminUsersPage() {
       id: u.id,
       name: u.name,
       role: u.role,
+      access_code: u.access_code ?? '',
       branch_id: u.branch_id ? String(u.branch_id) : '',
       pin: '',
     });
@@ -93,6 +95,10 @@ export default function AdminUsersPage() {
       setError('Managers must be assigned to a branch.');
       return;
     }
+    if (form.role !== 'manager' && !form.access_code.trim()) {
+      setError('An access code is required — it is how this user signs in.');
+      return;
+    }
     if (!form.id && form.pin.length < 4) {
       setError('A PIN of at least 4 digits is required for new users.');
       return;
@@ -100,6 +106,7 @@ export default function AdminUsersPage() {
     const payload: UserPayload = {
       name: form.name.trim(),
       role: form.role,
+      ...(form.role !== 'manager' ? { access_code: form.access_code.trim().toUpperCase() } : {}),
       branch_id: form.role === 'manager' ? Number(form.branch_id) : null,
       ...(form.pin ? { pin: form.pin } : {}),
     };
@@ -136,6 +143,7 @@ export default function AdminUsersPage() {
   const columns: Column<AuthUser>[] = [
     { key: 'name', header: 'Name', render: (u) => <span className="font-medium text-gray-900">{u.name}</span> },
     { key: 'role', header: 'Role', render: (u) => <Badge variant={ROLE_BADGE[u.role]}>{ROLE_OPTIONS.find((r) => r.value === u.role)?.label ?? u.role}</Badge> },
+    { key: 'access_code', header: 'Code', render: (u) => <span className="font-mono text-xs font-semibold text-gray-700">{u.access_code ?? '—'}</span> },
     { key: 'branch', header: 'Branch', render: (u) => u.branch?.branch_name ?? '—' },
     {
       key: 'status',
@@ -224,6 +232,23 @@ export default function AdminUsersPage() {
                 ))}
               </select>
             </FormField>
+
+            {form.role !== 'manager' && (
+              <FormField
+                label="Access code"
+                icon={KeyRound}
+                required
+                hint="Unique code this user signs in with. Managers automatically use their branch code."
+              >
+                <input
+                  className={formInputClass}
+                  value={form.access_code}
+                  maxLength={32}
+                  onChange={(e) => setForm({ ...form, access_code: e.target.value.replace(/\s+/g, '').toUpperCase() })}
+                  placeholder="e.g. EXEC"
+                />
+              </FormField>
+            )}
 
             {form.role === 'manager' && (
               <FormField label="Branch" icon={Building2} required>
