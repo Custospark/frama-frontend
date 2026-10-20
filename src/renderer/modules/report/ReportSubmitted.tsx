@@ -40,7 +40,7 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
   const receiptPhotos = report.receipt_photos ?? [];
   const expenseReceipts = report.expense_receipts ?? [];
   const totalAttachments = receiptPhotos.length + expenseReceipts.length;
-  const isHostel = report.beds_occupied !== null && report.beds_occupied !== undefined;
+  const isHostel = user?.branch?.business_type?.slug === 'hostel';
   const breakdown: Array<[string, number]> = [
     ['Rooms', report.rooms_rev],
     ['Bar', report.bar_rev],
@@ -130,24 +130,21 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
 
       <Card accent="blue" className="space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">Total Revenue</span>
+          <span className="text-sm font-medium text-gray-700">
+            {isHostel ? 'Total Collected Today' : 'Total Revenue'}
+          </span>
           <span className="text-2xl font-bold text-blue-700">{formatCurrency(report.total_rev)}</span>
         </div>
-        <div className="divide-y divide-gray-100 border-t border-gray-100 pt-2">
-          {isHostel ? (
-            <div className="flex items-center justify-between py-1.5 text-sm">
-              <span className="text-gray-500">Beds Occupied</span>
-              <span className="font-medium text-gray-800">{report.beds_occupied}</span>
-            </div>
-          ) : (
-            breakdown.map(([label, value]) => (
+        {!isHostel && (
+          <div className="divide-y divide-gray-100 border-t border-gray-100 pt-2">
+            {breakdown.map(([label, value]) => (
               <div key={label} className="flex items-center justify-between py-1.5 text-sm">
                 <span className="text-gray-500">{label}</span>
                 <span className="font-medium text-gray-800">{formatCurrency(value)}</span>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <Card className="space-y-3">

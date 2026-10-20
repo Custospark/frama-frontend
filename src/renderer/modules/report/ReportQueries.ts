@@ -11,8 +11,8 @@ export const reportKeys = {
   mine: (date?: string) => [...reportKeys.all, 'mine', date] as const,
 };
 
-/** Hostel branches submit beds + a single collected total; motel branches the
- *  five revenue categories. The server derives the total for motel reports. */
+/** Hostel branches submit a single collected total; motel branches the five
+ *  revenue categories. The server derives the total for motel reports. */
 export interface ReportFormValues {
   report_date: string;
   rooms_rev?: number;
@@ -20,7 +20,6 @@ export interface ReportFormValues {
   food_rev?: number;
   sauna_rev?: number;
   other_rev?: number;
-  beds_occupied?: number;
   total_rev?: number;
   expenses: number;
   cash_handed_over: number;
@@ -61,7 +60,6 @@ export function useSubmitReport() {
         ['food_rev', values.food_rev],
         ['sauna_rev', values.sauna_rev],
         ['other_rev', values.other_rev],
-        ['beds_occupied', values.beds_occupied],
         ['total_rev', values.total_rev],
       ];
       financials.forEach(([key, value]) => {

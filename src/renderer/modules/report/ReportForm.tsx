@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  BedDouble,
   CalendarDays,
   CircleDollarSign,
   FolderArchive,
@@ -239,7 +238,6 @@ function UploadZone({ group, title, files, previews, error, onAdd, onRemove }: U
 
 export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint }: ReportFormProps) {
   const [values, setValues] = useState(EMPTY_VALUES);
-  const [bedsOccupied, setBedsOccupied] = useState('');
   const [totalCollected, setTotalCollected] = useState('');
   const [expenses, setExpenses] = useState('');
   const [cashHandedOver, setCashHandedOver] = useState('');
@@ -260,7 +258,10 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
   const deleteField = useDeleteCustomField();
 
   const branchTypeId = user?.branch?.business_type_id ?? null;
-  const isHostel = user?.branch?.business_type?.slug === 'hostel';
+  const branchType = user?.branch?.business_type
+    ?? businessTypes.find((type) => type.id === branchTypeId)
+    ?? null;
+  const isHostel = branchType?.slug === 'hostel';
   const branchName = user?.branch?.branch_name ?? 'Branch';
   const managerName = user?.name ?? '';
 
@@ -386,11 +387,6 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
     if (!date) next.date = 'Please choose a date.';
 
     if (isHostel) {
-      if (bedsOccupied.trim() === '') {
-        next.beds_occupied = 'Enter the total beds occupied.';
-      } else if (!Number.isInteger(Number(bedsOccupied)) || Number(bedsOccupied) < 0) {
-        next.beds_occupied = 'Beds occupied must be a whole number (0 or more).';
-      }
       if (totalCollected.trim() === '') {
         next.total_rev = 'Enter the total collected today.';
       }
@@ -449,7 +445,6 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
       isHostel
         ? {
             ...common,
-            beds_occupied: Number(bedsOccupied),
             total_rev: parseMoney(totalCollected || '0'),
           }
         : {
@@ -505,45 +500,21 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
 
       {isHostel ? (
         <FormSection
-          title="Occupancy & collection"
-          icon={BedDouble}
-          description="How many beds were taken and what was collected today."
+          title="Collection"
+          icon={HandCoins}
+          description="What was collected today."
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Total Beds Occupied" icon={BedDouble} required error={errors.beds_occupied}>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={0}
-                step={1}
-                value={bedsOccupied}
-                onChange={(e) => {
-                  setBedsOccupied(e.target.value);
-                  setErrors((prev) => ({ ...prev, beds_occupied: '' }));
-                }}
-                placeholder="0"
-                className={formInputClass}
-              />
-            </FormField>
-            <MoneyInput
-              label="Total Collected Today"
-              required
-              value={totalCollected}
-              onChange={(e) => {
-                setTotalCollected(formatMoney(e.target.value));
-                setErrors((prev) => ({ ...prev, total_rev: '' }));
-              }}
-              error={errors.total_rev}
-              placeholder="0"
-            />
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-            <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <Wallet className="h-4 w-4 text-blue-600" /> Total Collected Today
-            </span>
-            <span className="text-2xl font-bold text-blue-700">{formatCurrency(total)}</span>
-          </div>
+          <MoneyInput
+            label="Total Collected Today"
+            required
+            value={totalCollected}
+            onChange={(e) => {
+              setTotalCollected(formatMoney(e.target.value));
+              setErrors((prev) => ({ ...prev, total_rev: '' }));
+            }}
+            error={errors.total_rev}
+            placeholder="0"
+          />
         </FormSection>
       ) : (
         <FormSection
