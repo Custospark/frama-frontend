@@ -53,6 +53,8 @@ interface ReportFormProps {
   uploadProgress?: number | null;
   errorMessage?: string;
   todayTotalHint?: string;
+  /** A report already exists for the selected date, so it cannot be submitted again. */
+  locked?: boolean;
 }
 
 type RevenueKey = 'rooms_rev' | 'bar_rev' | 'food_rev' | 'sauna_rev' | 'other_rev';
@@ -238,7 +240,7 @@ function UploadZone({ group, title, files, previews, error, onAdd, onRemove }: U
   );
 }
 
-export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint }: ReportFormProps) {
+export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint, locked = false }: ReportFormProps) {
   const [values, setValues] = useState(EMPTY_VALUES);
   const [roomsOccupied, setRoomsOccupied] = useState('');
   const [expectedOverride, setExpectedOverride] = useState<string | undefined>(undefined);
@@ -824,9 +826,10 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
             type="submit"
             size="lg"
             loading={submitting}
+            disabled={locked}
             className={submitting ? 'shrink-0' : 'ml-auto w-full sm:w-auto'}
           >
-            {submitting ? 'Submitting…' : 'Submit'}
+            {locked ? 'Already submitted' : submitting ? 'Submitting…' : 'Submit'}
           </Button>
         </div>
       </FormFooter>
