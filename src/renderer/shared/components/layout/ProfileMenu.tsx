@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import type { RefObject } from 'react';
-import { KeyRound, LogOut } from 'lucide-react';
+import { KeyRound, Loader2, LogOut } from 'lucide-react';
 import { ROUTES } from '../../../app/routes/constants/shared.paths';
 import type { AuthUser, UserRole } from '../../types/models';
 
@@ -71,7 +71,11 @@ export function ProfileMenu({
           disabled={isLoggingOut}
           className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
         >
-          <LogOut className="h-4 w-4 shrink-0" />
+          {isLoggingOut ? (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          ) : (
+            <LogOut className="h-4 w-4 shrink-0" />
+          )}
           {isLoggingOut ? 'Logging out...' : 'Logout'}
         </button>
       </div>

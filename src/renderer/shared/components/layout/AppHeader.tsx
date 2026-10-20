@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Menu } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { FramaBrandLockup } from '../brand/FramaBrandLockup';
 import { ProfileMenu } from './ProfileMenu';
+import { Spinner } from '../loading/Spinner';
 import { SHELL_HEADER_HEIGHT_CLASS } from './layoutConstants';
 import { ROUTES } from '../../../app/routes/constants/shared.paths';
 import { useAuth } from '../../../app/contexts/useAuth';
@@ -73,7 +75,10 @@ export function AppHeader({ onToggleSidebar, sidebarLabel }: AppHeaderProps) {
     setOpen(false);
     setLoggingOut(true);
     try {
-      await logout();
+      await Promise.all([
+        logout(),
+        new Promise((resolve) => setTimeout(resolve, 450)),
+      ]);
       navigate(ROUTES.LOGIN, { replace: true });
     } catch {
       showToast('error', 'Could not sign out. Please try again.');
@@ -132,6 +137,19 @@ export function AppHeader({ onToggleSidebar, sidebarLabel }: AppHeaderProps) {
           user={user}
         />
       </div>
+
+      {loggingOut &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[400] flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur-sm"
+            role="status"
+            aria-live="polite"
+          >
+            <Spinner className="h-9 w-9" />
+            <p className="text-sm font-medium text-gray-700">Signing you out…</p>
+          </div>,
+          document.body,
+        )}
     </header>
   );
 }
