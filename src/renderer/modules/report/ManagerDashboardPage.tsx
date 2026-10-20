@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   BedDouble,
   CheckCircle2,
   Clock,
   DoorOpen,
+  Eye,
   Flame,
   HandCoins,
   Plus,
@@ -19,19 +20,25 @@ import { DashboardStatCard } from '../../shared/components/cards/DashboardStatCa
 import type { CardColor } from '../../shared/components/cards/statCardStyles';
 import { Button } from '../../shared/components/buttons/Button';
 import { Badge } from '../../shared/components/badges/Badge';
+import { Card } from '../../shared/components/cards/Card';
+import { Modal } from '../../shared/components/modals/Modal';
+import { Table, type Column } from '../../shared/components/tables/Table';
 import { RevenueTrendChart } from '../admin/DashboardCharts';
 import { RevenueMixChart, type RevenueMixSlice } from './ManagerCharts';
+import { ReportDetails } from './ReportDetails';
 import { ShareBranchLinkButton } from '../share/ShareBranchLinkButton';
 import { useAuth } from '../../app/contexts/useAuth';
 import { useMyReports } from '../report/ReportQueries';
 import { formatCurrency } from '../../shared/utils/formatCurrency';
-import { formatDate, todayISO } from '../../shared/utils/formatDateTime';
+import { formatDate, formatDateTime, todayISO } from '../../shared/utils/formatDateTime';
 import { ROUTES } from '../../app/routes/constants/shared.paths';
+import type { Report } from '../../shared/types/models';
 
 export default function ManagerDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { data: reports = [], isLoading } = useMyReports();
+  const [viewing, setViewing] = useState<Report | null>(null);
 
   const today = todayISO();
   const todayReport = reports.find((r) => r.report_date === today) ?? null;
@@ -115,6 +122,60 @@ export default function ManagerDashboardPage() {
         { label: 'Food', value: formatCurrency(todayReport?.food_rev ?? 0), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
         { label: 'Sauna', value: formatCurrency(todayReport?.sauna_rev ?? 0), icon: Flame, color: 'purple', badge: 'Sauna' },
       ];
+
+  const reportColumns: Column<Report>[] = [
+    {
+      key: 'report_date',
+      header: 'Date',
+      render: (report) => (
+        <div>
+          <p className="font-medium text-gray-900">{formatDate(report.report_date)}</p>
+          <p className="text-xs text-gray-400">{formatDateTime(report.submitted_at)}</p>
+        </div>
+      ),
+    },
+    {
+      key: 'total_rev',
+      header: 'Collected',
+      align: 'right',
+      render: (report) => (
+        <span className="font-semibold text-blue-700">{formatCurrency(report.total_rev)}</span>
+      ),
+    },
+    {
+      key: 'expenses',
+      header: 'Expenses',
+      align: 'right',
+      render: (report) => formatCurrency(report.expenses),
+    },
+    {
+      key: 'cash_handed_over',
+      header: 'Cash Handed Over',
+      align: 'right',
+      render: (report) => formatCurrency(report.cash_handed_over),
+    },
+    {
+      key: 'attachments_count',
+      header: 'Files',
+      align: 'center',
+      render: (report) => (report.receipt_photos?.length ?? 0) + (report.expense_receipts?.length ?? 0),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: () => <Badge variant="success">Submitted</Badge>,
+    },
+    {
+      key: 'action',
+      header: '',
+      align: 'right',
+      render: (report) => (
+        <Button variant="outline" size="sm" onClick={() => setViewing(report)}>
+          <Eye className="mr-1.5 h-4 w-4" /> View
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <AdminShell>
@@ -218,11 +279,45 @@ export default function ManagerDashboardPage() {
           </div>
         </div>
 
+        <Card className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">My submitted reports</p>
+              <p className="text-xs text-gray-500">Open any report to see everything you submitted.</p>
+            </div>
+            <Button size="sm" onClick={() => navigate(ROUTES.MANAGER.NEW_REPORT)}>
+              <Plus className="h-4 w-4" /> Submit Report
+            </Button>
+          </div>
+          <Table
+            columns={reportColumns}
+            data={reports}
+            loading={isLoading}
+            rowKey={(report) => report.id}
+            onRowClick={(report) => setViewing(report)}
+            emptyMessage="No reports submitted yet."
+          />
+        </Card>
+
         <div className="flex justify-end">
           <Link to={ROUTES.MANAGER.NEW_REPORT} className="text-xs font-medium text-blue-600 hover:underline">
             Manage reports
           </Link>
         </div>
+
+        <Modal
+          isOpen={viewing !== null}
+          onClose={() => setViewing(null)}
+          title={viewing ? `${formatDate(viewing.report_date)} · ${formatCurrency(viewing.total_rev)}` : undefined}
+          size="lg"
+          footer={
+            <Button variant="outline" size="sm" onClick={() => setViewing(null)}>
+              Close
+            </Button>
+          }
+        >
+          {viewing && <ReportDetails report={viewing} showMeta />}
+        </Modal>
       </div>
     </AdminShell>
   );

@@ -6,6 +6,7 @@ import type {
   Branch,
   DashboardSummary,
   Paginated,
+  Report,
   TrendPoint,
   UserRole,
 } from '../../shared/types/models';
@@ -16,7 +17,20 @@ export const adminKeys = {
   trend: (from: string, to: string) => [...adminKeys.all, 'trend', from, to] as const,
   branches: () => [...adminKeys.all, 'branches'] as const,
   users: () => [...adminKeys.all, 'users'] as const,
+  report: (id: number) => [...adminKeys.all, 'report', id] as const,
 };
+
+/** Full submitted report (breakdown, semester figures, attachments). */
+export function useAdminReport(id: number | null) {
+  return useQuery({
+    queryKey: adminKeys.report(id ?? 0),
+    enabled: id !== null,
+    queryFn: async (): Promise<Report> => {
+      const { data } = await axiosInstance.get<{ data: Report }>(ENDPOINTS.REPORTS.SHOW(id as number));
+      return data.data;
+    },
+  });
+}
 
 /* ----------------------------- Dashboard ----------------------------- */
 

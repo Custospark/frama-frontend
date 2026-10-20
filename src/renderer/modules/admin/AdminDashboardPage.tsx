@@ -91,7 +91,7 @@ export default function AdminDashboardPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `frama-reports-${date}.csv`;
+      a.download = `frama-reports-${date}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       showToast('success', 'Export downloaded.');
@@ -156,7 +156,7 @@ export default function AdminDashboardPage() {
               <RefreshCw className="mr-1.5 h-4 w-4" /> Refresh
             </Button>
             <Button size="sm" onClick={handleExport} loading={exportMutation.isPending} disabled={!rows.length}>
-              <Download className="mr-1.5 h-4 w-4" /> Export CSV
+              <Download className="mr-1.5 h-4 w-4" /> Export Excel
             </Button>
           </div>
         </div>

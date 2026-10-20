@@ -13,6 +13,7 @@ const ReportPage = lazy(() => import('../../modules/report/ReportPage'));
 const AssetsPage = lazy(() => import('../../modules/assets/AssetsPage'));
 
 const AdminDashboardPage = lazy(() => import('../../modules/admin/AdminDashboardPage'));
+const AdminReportsPage = lazy(() => import('../../modules/admin/AdminReportsPage'));
 const AdminBranchesPage = lazy(() => import('../../modules/admin/AdminBranchesPage'));
 const AdminUsersPage = lazy(() => import('../../modules/admin/AdminUsersPage'));
 const AdminBusinessTypesPage = lazy(() => import('../../modules/admin/AdminBusinessTypesPage'));
@@ -103,7 +104,7 @@ export function AppRoutes() {
           path={ROUTES.ADMIN.REPORTS}
           element={
             <ProtectedRoute roles={['executive']}>
-              <AdminDashboardPage />
+              <AdminReportsPage />
             </ProtectedRoute>
           }
         />
