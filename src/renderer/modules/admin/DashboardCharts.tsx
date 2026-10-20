@@ -33,7 +33,19 @@ const BRANCH_SERIES = [
 
 type TrendRow = TrendPoint & { label: string };
 
-export function RevenueTrendChart({ data }: { data: TrendPoint[] }) {
+interface RevenueTrendChartProps {
+  data: TrendPoint[];
+  title?: string;
+  scopeLabel?: string;
+  valueLabel?: string;
+}
+
+export function RevenueTrendChart({
+  data,
+  title = 'Revenue Trend',
+  scopeLabel = 'all branches',
+  valueLabel = 'Total revenue',
+}: RevenueTrendChartProps) {
   const chartData: TrendRow[] = data.map((d) => ({
     ...d,
     label: formatDate(d.date),
@@ -44,8 +56,8 @@ export function RevenueTrendChart({ data }: { data: TrendPoint[] }) {
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <h3 className="text-sm font-semibold text-gray-800">Revenue Trend</h3>
-            <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-wide">Daily total · all branches</p>
+            <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+            <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-wide">Daily total · {scopeLabel}</p>
           </div>
           <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">No data yet</span>
         </div>
@@ -60,8 +72,10 @@ export function RevenueTrendChart({ data }: { data: TrendPoint[] }) {
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-gray-800">Revenue Trend</h3>
-          <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-wide">Last {chartData.length} days · daily total</p>
+          <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+          <p className="text-xs text-gray-500 mt-0.5 uppercase tracking-wide">
+            Last {chartData.length} days · {scopeLabel}
+          </p>
         </div>
       </div>
 
@@ -98,7 +112,7 @@ export function RevenueTrendChart({ data }: { data: TrendPoint[] }) {
                   const row = payload[0]?.payload as TrendRow;
                   return (
                     <ChartTooltipShell title={row.label} subtitle="Daily total">
-                      <ChartTooltipRow label="Total revenue" value={formatCurrency(row.total)} accent />
+                      <ChartTooltipRow label={valueLabel} value={formatCurrency(row.total)} accent />
                     </ChartTooltipShell>
                   );
                 }}

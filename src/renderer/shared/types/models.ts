@@ -110,7 +110,10 @@ export interface Report {
   food_rev: number;
   sauna_rev: number;
   other_rev: number;
-  beds_occupied: number | null;
+  rooms_occupied: number | null;
+  amount_expected_semester: number | null;
+  collected_so_far: number | null;
+  balance_remaining: number | null;
   total_rev: number;
   expenses: number;
   cash_handed_over: number;
@@ -152,7 +155,7 @@ export interface DashboardRow {
   food_rev: number;
   sauna_rev: number;
   other_rev: number;
-  beds_occupied: number | null;
+  rooms_occupied: number | null;
   total_rev: number;
   expenses: number;
   net_rev: number;

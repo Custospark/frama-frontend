@@ -48,6 +48,21 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
     ['Sauna', report.sauna_rev],
     ['Other', report.other_rev],
   ];
+  const hostelSummary: Array<[string, string]> = [
+    ['Rooms Occupied', report.rooms_occupied !== null ? String(report.rooms_occupied) : '—'],
+    [
+      'Amount Expected This Semester',
+      report.amount_expected_semester !== null ? formatCurrency(report.amount_expected_semester) : '—',
+    ],
+    [
+      'Money Collected So Far',
+      report.collected_so_far !== null ? formatCurrency(report.collected_so_far) : '—',
+    ],
+    [
+      'Balance Remaining',
+      report.balance_remaining !== null ? formatCurrency(report.balance_remaining) : '—',
+    ],
+  ];
 
   const handleDownloadOne = async (id: number, name: string) => {
     setDownloadingId(id);
@@ -135,16 +150,17 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
           </span>
           <span className="text-2xl font-bold text-blue-700">{formatCurrency(report.total_rev)}</span>
         </div>
-        {!isHostel && (
-          <div className="divide-y divide-gray-100 border-t border-gray-100 pt-2">
-            {breakdown.map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between py-1.5 text-sm">
-                <span className="text-gray-500">{label}</span>
-                <span className="font-medium text-gray-800">{formatCurrency(value)}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="divide-y divide-gray-100 border-t border-gray-100 pt-2">
+          {(isHostel
+            ? hostelSummary
+            : breakdown.map(([label, value]) => [label, formatCurrency(value)] as [string, string])
+          ).map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between py-1.5 text-sm">
+              <span className="text-gray-500">{label}</span>
+              <span className="font-medium text-gray-800">{value}</span>
+            </div>
+          ))}
+        </div>
       </Card>
 
       <Card className="space-y-3">

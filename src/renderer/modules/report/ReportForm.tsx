@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
   CircleDollarSign,
+  DoorOpen,
   FolderArchive,
   FolderPlus,
   HandCoins,
@@ -41,6 +42,7 @@ import { formatCurrency } from '../../shared/utils/formatCurrency';
 import { formatFileSize } from '../../shared/utils/formatFileSize';
 import type { CustomField, CustomValues } from '../../shared/types/models';
 import type { ReportFormValues } from './ReportQueries';
+import { useMyReports } from './ReportQueries';
 
 interface ReportFormProps {
   date: string;
@@ -238,6 +240,9 @@ function UploadZone({ group, title, files, previews, error, onAdd, onRemove }: U
 
 export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint }: ReportFormProps) {
   const [values, setValues] = useState(EMPTY_VALUES);
+  const [roomsOccupied, setRoomsOccupied] = useState('');
+  const [expectedOverride, setExpectedOverride] = useState<string | undefined>(undefined);
+  const [soFarOverride, setSoFarOverride] = useState<string | undefined>(undefined);
   const [totalCollected, setTotalCollected] = useState('');
   const [expenses, setExpenses] = useState('');
   const [cashHandedOver, setCashHandedOver] = useState('');
@@ -253,6 +258,7 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
 
   const { data: businessTypes = [] } = useBusinessTypes(true);
   const { data: customFields = [] } = useCustomFields('report');
+  const { data: reports = [] } = useMyReports();
   const { user } = useAuth();
   const { showToast } = useToast();
   const deleteField = useDeleteCustomField();
@@ -264,6 +270,33 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
   const isHostel = branchType?.slug === 'hostel';
   const branchName = user?.branch?.branch_name ?? 'Branch';
   const managerName = user?.name ?? '';
+
+  // Semester figures rarely change: carry the latest submitted values forward
+  // and let managers override them when they do change.
+  const carriedSemester = useMemo(() => {
+    const expected = reports.find(
+      (report) => report.amount_expected_semester !== null && report.amount_expected_semester !== undefined,
+    );
+    const soFar = reports.find(
+      (report) => report.collected_so_far !== null && report.collected_so_far !== undefined,
+    );
+
+    return {
+      amountExpected: expected?.amount_expected_semester ?? null,
+      collectedSoFar: soFar?.collected_so_far ?? null,
+    };
+  }, [reports]);
+
+  const expectedInput =
+    expectedOverride
+    ?? (carriedSemester.amountExpected !== null ? formatMoney(String(carriedSemester.amountExpected)) : '');
+  const soFarInput =
+    soFarOverride
+    ?? (carriedSemester.collectedSoFar !== null ? formatMoney(String(carriedSemester.collectedSoFar)) : '');
+  const expectedSemesterValue = expectedInput.trim() !== '' ? parseMoney(expectedInput) : null;
+  const collectedSoFarValue = soFarInput.trim() !== '' ? parseMoney(soFarInput) : null;
+  const balanceRemaining =
+    expectedSemesterValue !== null ? expectedSemesterValue - (collectedSoFarValue ?? 0) : null;
 
   const activeTypeIds = useMemo(() => (branchTypeId ? [branchTypeId] : []), [branchTypeId]);
 
@@ -387,6 +420,11 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
     if (!date) next.date = 'Please choose a date.';
 
     if (isHostel) {
+      if (roomsOccupied.trim() === '') {
+        next.rooms_occupied = 'Enter the total rooms occupied.';
+      } else if (!Number.isInteger(Number(roomsOccupied)) || Number(roomsOccupied) < 0) {
+        next.rooms_occupied = 'Rooms occupied must be a whole number (0 or more).';
+      }
       if (totalCollected.trim() === '') {
         next.total_rev = 'Enter the total collected today.';
       }
@@ -445,6 +483,9 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
       isHostel
         ? {
             ...common,
+            rooms_occupied: Number(roomsOccupied),
+            amount_expected_semester: expectedSemesterValue ?? undefined,
+            collected_so_far: collectedSoFarValue ?? undefined,
             total_rev: parseMoney(totalCollected || '0'),
           }
         : {
@@ -463,6 +504,63 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {isHostel && (
+        <div className="rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+          <p className="text-sm font-semibold text-gray-900">Semester Summary</p>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="amount_expected_semester" className="text-xs font-medium text-gray-500">
+                Amount Expected This Semester
+              </label>
+              <input
+                id="amount_expected_semester"
+                inputMode="numeric"
+                value={expectedInput}
+                onChange={(e) => setExpectedOverride(formatMoney(e.target.value))}
+                placeholder="0"
+                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-right text-lg font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <label htmlFor="total_collected_today" className="text-xs font-medium text-gray-500">
+                Money Collected Today
+              </label>
+              <input
+                id="total_collected_today"
+                inputMode="numeric"
+                value={totalCollected}
+                onChange={(e) => {
+                  setTotalCollected(formatMoney(e.target.value));
+                  setErrors((prev) => ({ ...prev, total_rev: '' }));
+                }}
+                placeholder="0"
+                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-right text-lg font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+              {errors.total_rev && <p className="mt-1 text-xs text-red-600">{errors.total_rev}</p>}
+            </div>
+            <div>
+              <label htmlFor="collected_so_far" className="text-xs font-medium text-gray-500">
+                Money Collected So Far
+              </label>
+              <input
+                id="collected_so_far"
+                inputMode="numeric"
+                value={soFarInput}
+                onChange={(e) => setSoFarOverride(formatMoney(e.target.value))}
+                placeholder="0"
+                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-right text-lg font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500">Balance Remaining</p>
+              <p className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-right text-lg font-semibold text-blue-700">
+                {balanceRemaining !== null ? formatCurrency(balanceRemaining) : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <FormHero
         icon={Receipt}
         title={isHostel ? `${branchName} - Daily Report` : `${branchName} - Daily Sales`}
@@ -500,21 +598,25 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
 
       {isHostel ? (
         <FormSection
-          title="Collection"
-          icon={HandCoins}
-          description="What was collected today."
+          title="Occupancy"
+          icon={DoorOpen}
+          description="Rooms occupied in this branch today."
         >
-          <MoneyInput
-            label="Total Collected Today"
-            required
-            value={totalCollected}
-            onChange={(e) => {
-              setTotalCollected(formatMoney(e.target.value));
-              setErrors((prev) => ({ ...prev, total_rev: '' }));
-            }}
-            error={errors.total_rev}
-            placeholder="0"
-          />
+          <FormField label="Total Rooms Occupied" icon={DoorOpen} required error={errors.rooms_occupied}>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1}
+              value={roomsOccupied}
+              onChange={(e) => {
+                setRoomsOccupied(e.target.value);
+                setErrors((prev) => ({ ...prev, rooms_occupied: '' }));
+              }}
+              placeholder="0"
+              className={formInputClass}
+            />
+          </FormField>
         </FormSection>
       ) : (
         <FormSection

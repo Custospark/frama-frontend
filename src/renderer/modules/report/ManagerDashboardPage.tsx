@@ -1,6 +1,19 @@
 import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BedDouble, CheckCircle2, Clock, Flame, Plus, Upload, UtensilsCrossed, Wallet, Wine } from 'lucide-react';
+import {
+  BedDouble,
+  CheckCircle2,
+  Clock,
+  DoorOpen,
+  Flame,
+  HandCoins,
+  Plus,
+  Target,
+  Upload,
+  UtensilsCrossed,
+  Wallet,
+  Wine,
+} from 'lucide-react';
 import { AdminShell } from '../../shared/components/layout/AdminShell';
 import { DashboardStatCard } from '../../shared/components/cards/DashboardStatCard';
 import type { CardColor } from '../../shared/components/cards/statCardStyles';
@@ -22,6 +35,8 @@ export default function ManagerDashboardPage() {
 
   const today = todayISO();
   const todayReport = reports.find((r) => r.report_date === today) ?? null;
+  const isHostel = user?.branch?.business_type?.slug === 'hostel';
+  const branchName = user?.branch?.branch_name ?? 'Your branch';
 
   const stats = useMemo(() => {
     const dayTotal = todayReport?.total_rev ?? 0;
@@ -30,6 +45,17 @@ export default function ManagerDashboardPage() {
       .reduce((sum, r) => sum + r.total_rev, 0);
     return { dayTotal, month };
   }, [reports, todayReport, today]);
+
+  const semester = useMemo(() => {
+    const latest = reports.find(
+      (r) => r.amount_expected_semester !== null || r.collected_so_far !== null,
+    );
+    const expected = latest?.amount_expected_semester ?? null;
+    const soFar = latest?.collected_so_far ?? null;
+    const balance = expected !== null ? expected - (soFar ?? 0) : null;
+    const progress = expected !== null && expected > 0 ? Math.min(100, ((soFar ?? 0) / expected) * 100) : 0;
+    return { expected, soFar, balance, progress };
+  }, [reports]);
 
   const trend = useMemo(
     () =>
@@ -48,14 +74,47 @@ export default function ManagerDashboardPage() {
     { name: 'Other', value: todayReport?.other_rev ?? 0, fill: '#8b5cf6' },
   ];
 
-  const tiles: { label: string; value: string; icon: typeof Wallet; color: CardColor; badge: string }[] = [
-    { label: "Today's Total", value: formatCurrency(stats.dayTotal), icon: Wallet, color: 'blue', badge: 'Today' },
-    { label: 'This Month', value: formatCurrency(stats.month), icon: CheckCircle2, color: 'green', badge: 'Month' },
-    { label: 'Rooms', value: formatCurrency(todayReport?.rooms_rev ?? 0), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
-    { label: 'Bar', value: formatCurrency(todayReport?.bar_rev ?? 0), icon: Wine, color: 'amber', badge: 'Bar' },
-    { label: 'Food', value: formatCurrency(todayReport?.food_rev ?? 0), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
-    { label: 'Sauna', value: formatCurrency(todayReport?.sauna_rev ?? 0), icon: Flame, color: 'purple', badge: 'Sauna' },
-  ];
+  const tiles: { label: string; value: string; icon: typeof Wallet; color: CardColor; badge: string }[] = isHostel
+    ? [
+        { label: "Today's Total", value: formatCurrency(stats.dayTotal), icon: Wallet, color: 'blue', badge: 'Today' },
+        { label: 'This Month', value: formatCurrency(stats.month), icon: CheckCircle2, color: 'green', badge: 'Month' },
+        {
+          label: 'Rooms Occupied',
+          value: todayReport ? String(todayReport.rooms_occupied ?? 0) : '—',
+          icon: DoorOpen,
+          color: 'indigo',
+          badge: 'Rooms',
+        },
+        {
+          label: 'Expected This Semester',
+          value: semester.expected !== null ? formatCurrency(semester.expected) : '—',
+          icon: Target,
+          color: 'amber',
+          badge: 'Target',
+        },
+        {
+          label: 'Collected So Far',
+          value: semester.soFar !== null ? formatCurrency(semester.soFar) : '—',
+          icon: HandCoins,
+          color: 'green',
+          badge: 'Semester',
+        },
+        {
+          label: 'Balance Remaining',
+          value: semester.balance !== null ? formatCurrency(semester.balance) : '—',
+          icon: Wallet,
+          color: 'purple',
+          badge: 'Semester',
+        },
+      ]
+    : [
+        { label: "Today's Total", value: formatCurrency(stats.dayTotal), icon: Wallet, color: 'blue', badge: 'Today' },
+        { label: 'This Month', value: formatCurrency(stats.month), icon: CheckCircle2, color: 'green', badge: 'Month' },
+        { label: 'Rooms', value: formatCurrency(todayReport?.rooms_rev ?? 0), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
+        { label: 'Bar', value: formatCurrency(todayReport?.bar_rev ?? 0), icon: Wine, color: 'amber', badge: 'Bar' },
+        { label: 'Food', value: formatCurrency(todayReport?.food_rev ?? 0), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
+        { label: 'Sauna', value: formatCurrency(todayReport?.sauna_rev ?? 0), icon: Flame, color: 'purple', badge: 'Sauna' },
+      ];
 
   return (
     <AdminShell>
@@ -89,7 +148,11 @@ export default function ManagerDashboardPage() {
               </span>
               <div>
                 <p className="text-sm font-semibold text-gray-900">Today&apos;s report is not uploaded yet</p>
-                <p className="text-xs text-gray-500">Enter the day&apos;s revenue and attach the handover receipt photo.</p>
+                <p className="text-xs text-gray-500">
+                  {isHostel
+                    ? "Enter the day's collection and attach the handover receipt photo."
+                    : "Enter the day's revenue and attach the handover receipt photo."}
+                </p>
               </div>
             </div>
             <Button size="sm" onClick={() => navigate(ROUTES.MANAGER.NEW_REPORT)}>
@@ -108,12 +171,46 @@ export default function ManagerDashboardPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           <div className="lg:col-span-3">
-            <RevenueTrendChart data={trend} />
+            <RevenueTrendChart
+              data={trend}
+              title={isHostel ? 'Collection Trend' : 'Revenue Trend'}
+              scopeLabel={`${branchName} only`}
+              valueLabel={isHostel ? 'Total collected' : 'Total revenue'}
+            />
           </div>
           <div className="lg:col-span-2">
             {isLoading ? (
               <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <div className="h-64 flex items-center justify-center text-sm text-gray-400">Loading…</div>
+              </div>
+            ) : isHostel ? (
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
+                <h3 className="text-sm font-semibold text-gray-900">Semester Progress</h3>
+                <p className="mt-1 text-xs text-gray-500">Collected so far against the semester target.</p>
+                <div className="mt-8">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Collected</span>
+                    <span className="font-semibold text-gray-900">
+                      {semester.soFar !== null ? formatCurrency(semester.soFar) : '—'}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-3 w-full overflow-hidden rounded-full bg-gray-100">
+                    <div
+                      className="h-full rounded-full bg-blue-600"
+                      style={{ width: `${semester.progress}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                    <span>{semester.progress.toFixed(0)}% of target</span>
+                    <span>{semester.expected !== null ? formatCurrency(semester.expected) : '—'}</span>
+                  </div>
+                  <div className="mt-6 flex items-center justify-between border-t border-gray-100 pt-3 text-sm">
+                    <span className="text-gray-500">Balance remaining</span>
+                    <span className="font-semibold text-gray-900">
+                      {semester.balance !== null ? formatCurrency(semester.balance) : '—'}
+                    </span>
+                  </div>
+                </div>
               </div>
             ) : (
               <RevenueMixChart data={mix} />

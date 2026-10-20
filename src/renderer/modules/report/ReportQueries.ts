@@ -20,6 +20,9 @@ export interface ReportFormValues {
   food_rev?: number;
   sauna_rev?: number;
   other_rev?: number;
+  rooms_occupied?: number;
+  amount_expected_semester?: number;
+  collected_so_far?: number;
   total_rev?: number;
   expenses: number;
   cash_handed_over: number;
@@ -60,6 +63,9 @@ export function useSubmitReport() {
         ['food_rev', values.food_rev],
         ['sauna_rev', values.sauna_rev],
         ['other_rev', values.other_rev],
+        ['rooms_occupied', values.rooms_occupied],
+        ['amount_expected_semester', values.amount_expected_semester],
+        ['collected_so_far', values.collected_so_far],
         ['total_rev', values.total_rev],
       ];
       financials.forEach(([key, value]) => {
