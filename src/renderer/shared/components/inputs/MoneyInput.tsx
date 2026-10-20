@@ -6,18 +6,20 @@ interface MoneyInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 't
   label?: string;
   error?: string;
   currency?: string;
+  required?: boolean;
 }
 
 /** Numeric revenue field. Stores a plain number string but renders a grouped
  *  value for readability while still allowing dot-precision entry. */
 const MoneyInput = forwardRef<HTMLInputElement, MoneyInputProps>(
-  ({ className, label, error, currency = 'UGX', id, ...props }, ref) => {
+  ({ className, label, error, currency = 'UGX', required, id, ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
     return (
       <div className="space-y-1">
         {label && (
           <label htmlFor={inputId} className="block text-sm font-medium text-gray-700">
             {label}
+            {required && <span className="ml-0.5 text-red-500">*</span>}
           </label>
         )}
         <div className="relative">

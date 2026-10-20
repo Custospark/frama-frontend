@@ -11,17 +11,23 @@ export const reportKeys = {
   mine: (date?: string) => [...reportKeys.all, 'mine', date] as const,
 };
 
+/** Hostel branches submit beds + a single collected total; motel branches the
+ *  five revenue categories. The server derives the total for motel reports. */
 export interface ReportFormValues {
   report_date: string;
-  rooms_rev: number;
-  bar_rev: number;
-  food_rev: number;
-  sauna_rev: number;
+  rooms_rev?: number;
+  bar_rev?: number;
+  food_rev?: number;
+  sauna_rev?: number;
+  other_rev?: number;
+  beds_occupied?: number;
+  total_rev?: number;
   expenses: number;
   cash_handed_over: number;
   comment: string | null;
   business_type_ids: number[];
-  attachments: File[];
+  receipt_photos: File[];
+  expense_receipts: File[];
   custom_values?: Record<string, unknown>;
 }
 
@@ -48,10 +54,20 @@ export function useSubmitReport() {
     mutationFn: async (values: ReportFormValues): Promise<Report> => {
       const form = new FormData();
       form.append('report_date', values.report_date);
-      form.append('rooms_rev', String(values.rooms_rev));
-      form.append('bar_rev', String(values.bar_rev));
-      form.append('food_rev', String(values.food_rev));
-      form.append('sauna_rev', String(values.sauna_rev));
+
+      const financials: Array<[string, number | undefined]> = [
+        ['rooms_rev', values.rooms_rev],
+        ['bar_rev', values.bar_rev],
+        ['food_rev', values.food_rev],
+        ['sauna_rev', values.sauna_rev],
+        ['other_rev', values.other_rev],
+        ['beds_occupied', values.beds_occupied],
+        ['total_rev', values.total_rev],
+      ];
+      financials.forEach(([key, value]) => {
+        if (value !== undefined) form.append(key, String(value));
+      });
+
       form.append('expenses', String(values.expenses));
       form.append('cash_handed_over', String(values.cash_handed_over));
       if (values.comment !== null && values.comment !== undefined && values.comment !== '') {
@@ -60,8 +76,11 @@ export function useSubmitReport() {
       values.business_type_ids.forEach((id) => {
         form.append('business_type_ids[]', String(id));
       });
-      values.attachments.forEach((file) => {
-        form.append('attachments[]', file);
+      values.receipt_photos.forEach((file) => {
+        form.append('receipt_photos[]', file);
+      });
+      values.expense_receipts.forEach((file) => {
+        form.append('expense_receipts[]', file);
       });
 
       Object.entries(values.custom_values ?? {}).forEach(([key, value]) => {

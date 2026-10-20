@@ -59,7 +59,7 @@ export default function ReportPage() {
               errorMessage={errorMessage}
             />
             <p className="flex items-center justify-center gap-1.5 text-center text-xs text-gray-400">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Receipt photo is required for every submission.
+              <CheckCircle2 className="h-3.5 w-3.5" /> Receipt photos and expense receipts are required for every submission.
             </p>
           </>
         )}

@@ -1,8 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  Building2,
+  BedDouble,
   CalendarDays,
-  CheckSquare,
   CircleDollarSign,
   FolderArchive,
   FolderPlus,
@@ -16,10 +15,7 @@ import {
   Plus,
   Receipt,
   Trash2,
-  UtensilsCrossed,
-  Wine,
-  BedDouble,
-  Flame,
+  User,
   Wallet,
 } from 'lucide-react';
 import { Button } from '../../shared/components/buttons/Button';
@@ -44,8 +40,7 @@ import { formatMoney, parseMoney } from '../../shared/utils/moneyInput';
 import { computeCalculatedFields } from '../../shared/utils/formulaEvaluator';
 import { formatCurrency } from '../../shared/utils/formatCurrency';
 import { formatFileSize } from '../../shared/utils/formatFileSize';
-import { cn } from '../../shared/utils/cn';
-import type { BusinessType, CustomField, CustomValues } from '../../shared/types/models';
+import type { CustomField, CustomValues } from '../../shared/types/models';
 import type { ReportFormValues } from './ReportQueries';
 
 interface ReportFormProps {
@@ -59,44 +54,204 @@ interface ReportFormProps {
   todayTotalHint?: string;
 }
 
+type RevenueKey = 'rooms_rev' | 'bar_rev' | 'food_rev' | 'sauna_rev' | 'other_rev';
+type AttachGroup = 'receipt' | 'expense';
+
 interface RevenueField {
-  key: 'rooms_rev' | 'bar_rev' | 'food_rev' | 'sauna_rev';
+  key: RevenueKey;
   label: string;
-  icon: typeof Wallet;
+  required: boolean;
 }
 
 const REVENUE_FIELDS: RevenueField[] = [
-  { key: 'rooms_rev', label: 'Rooms Revenue', icon: BedDouble },
-  { key: 'bar_rev', label: 'Bar Revenue', icon: Wine },
-  { key: 'food_rev', label: 'Food Revenue', icon: UtensilsCrossed },
-  { key: 'sauna_rev', label: 'Sauna Revenue', icon: Flame },
+  { key: 'rooms_rev', label: 'Rooms', required: true },
+  { key: 'bar_rev', label: 'Bar', required: false },
+  { key: 'food_rev', label: 'Food', required: true },
+  { key: 'sauna_rev', label: 'Sauna', required: true },
+  { key: 'other_rev', label: 'Other', required: true },
 ];
 
-const EMPTY_VALUES: Record<RevenueField['key'], string> = {
+const EMPTY_VALUES: Record<RevenueKey, string> = {
   rooms_rev: '',
   bar_rev: '',
   food_rev: '',
   sauna_rev: '',
+  other_rev: '',
 };
+
+const fileKey = (file: File) => `${file.name}::${file.size}::${file.lastModified}`;
+
+const ATTACHMENT_LIMIT = 50;
+
+interface UploadZoneProps {
+  group: AttachGroup;
+  title: string;
+  files: File[];
+  previews: Record<string, string>;
+  error?: string;
+  onAdd: (files: File[]) => void;
+  onRemove: (file: File) => void;
+}
+
+/** A single required upload zone: multiple files, a folder (zipped client-side)
+ *  or a ready-made zip. Previews are namespaced by group. */
+function UploadZone({ group, title, files, previews, error, onAdd, onRemove }: UploadZoneProps) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const folderRef = useRef<HTMLInputElement>(null);
+  const zipRef = useRef<HTMLInputElement>(null);
+  const [zipping, setZipping] = useState(false);
+  const { showToast } = useToast();
+
+  const handleFolderPick = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    setZipping(true);
+    try {
+      const { default: JSZip } = await import('jszip');
+      const zip = new JSZip();
+      const picked = Array.from(fileList);
+      const root = picked[0]?.webkitRelativePath?.split('/')[0] ?? 'folder';
+      for (const file of picked) {
+        zip.file(file.webkitRelativePath || file.name, file);
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      onAdd([new File([blob], `${root}.zip`, { type: 'application/zip' })]);
+    } catch {
+      showToast('error', 'Could not package the folder. Try zipping it yourself and uploading.');
+    } finally {
+      setZipping(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-gray-800">
+          {title} <span className="text-red-500">*</span>
+        </p>
+        <span className="text-xs text-gray-400">
+          {files.length} file{files.length === 1 ? '' : 's'}
+        </span>
+      </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          onAdd(Array.from(e.target.files ?? []));
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={zipRef}
+        type="file"
+        accept=".zip,.gz,.tar,.rar,.7z,application/zip"
+        className="hidden"
+        onChange={(e) => {
+          onAdd(Array.from(e.target.files ?? []));
+          e.target.value = '';
+        }}
+      />
+      <input
+        ref={folderRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          void handleFolderPick(e.target.files);
+          e.target.value = '';
+        }}
+        {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
+      />
+
+      {files.length === 0 ? (
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 py-8 text-gray-500 transition-colors hover:border-blue-400 hover:text-blue-600"
+        >
+          <ImageIcon className="h-7 w-7" />
+          <span className="text-sm font-medium">Add file</span>
+          <span className="text-xs text-gray-400">Photos, documents or zips</span>
+        </button>
+      ) : (
+        <ul className="space-y-2">
+          {files.map((file) => {
+            const key = `${group}:${fileKey(file)}`;
+            const previewUrl = previews[key];
+            return (
+              <li
+                key={key}
+                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2.5"
+              >
+                {previewUrl ? (
+                  <img src={previewUrl} alt={file.name} className="h-11 w-11 rounded-lg object-cover" />
+                ) : (
+                  <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+                    {/\.(zip|gz|tar|rar|7z)$/i.test(file.name) ? (
+                      <FolderArchive className="h-5 w-5" />
+                    ) : (
+                      <Paperclip className="h-5 w-5" />
+                    )}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-800">{file.name}</p>
+                  <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onRemove(file)}
+                  className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                  aria-label={`Remove ${file.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+          <Plus className="mr-1.5 h-4 w-4" /> Add files
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          loading={zipping}
+          onClick={() => folderRef.current?.click()}
+        >
+          <FolderPlus className="mr-1.5 h-4 w-4" /> Add folder
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => zipRef.current?.click()}>
+          <FolderArchive className="mr-1.5 h-4 w-4" /> Add zip
+        </Button>
+      </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}
 
 export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint }: ReportFormProps) {
   const [values, setValues] = useState(EMPTY_VALUES);
+  const [bedsOccupied, setBedsOccupied] = useState('');
+  const [totalCollected, setTotalCollected] = useState('');
   const [expenses, setExpenses] = useState('');
   const [cashHandedOver, setCashHandedOver] = useState('');
   const [comment, setComment] = useState('');
   const [customValues, setCustomValues] = useState<CustomValues>({});
-  const [selectedTypeIds, setSelectedTypeIds] = useState<number[]>([]);
-  const [touchedTypes, setTouchedTypes] = useState(false);
-  const [attachments, setAttachments] = useState<File[]>([]);
+  const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
+  const [expenseFiles, setExpenseFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<Record<string, string>>({});
-  const [zipping, setZipping] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [fieldModalTypeId, setFieldModalTypeId] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<CustomField | null>(null);
   const [confirmDeleteField, setConfirmDeleteField] = useState<CustomField | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const folderRef = useRef<HTMLInputElement>(null);
-  const zipRef = useRef<HTMLInputElement>(null);
 
   const { data: businessTypes = [] } = useBusinessTypes(true);
   const { data: customFields = [] } = useCustomFields('report');
@@ -104,31 +259,12 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
   const { showToast } = useToast();
   const deleteField = useDeleteCustomField();
 
-  const handleDeleteField = async () => {
-    if (!confirmDeleteField) return;
-    try {
-      await deleteField.mutateAsync(confirmDeleteField.id);
-      setCustomValues((prev) => {
-        const next = { ...prev };
-        delete next[confirmDeleteField.key];
-        return next;
-      });
-      showToast('success', 'Field removed.');
-      setConfirmDeleteField(null);
-    } catch (err) {
-      showToast('error', apiErrorMessage(err, 'Could not remove the field.'));
-    }
-  };
-
   const branchTypeId = user?.branch?.business_type_id ?? null;
+  const isHostel = user?.branch?.business_type?.slug === 'hostel';
+  const branchName = user?.branch?.branch_name ?? 'Branch';
+  const managerName = user?.name ?? '';
 
-  const activeTypeIds = useMemo(() => {
-    if (touchedTypes) return selectedTypeIds;
-    if (branchTypeId && businessTypes.some((type) => type.id === branchTypeId)) {
-      return [branchTypeId];
-    }
-    return [];
-  }, [touchedTypes, selectedTypeIds, branchTypeId, businessTypes]);
+  const activeTypeIds = useMemo(() => (branchTypeId ? [branchTypeId] : []), [branchTypeId]);
 
   const fieldsByType = useMemo(() => {
     const map = new Map<number, typeof customFields>();
@@ -146,19 +282,25 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
     [businessTypes, activeTypeIds],
   );
 
-  const defaultFieldTypeId = useMemo<number | ''>(() => {
-    if (branchTypeId && businessTypes.some((type) => type.id === branchTypeId)) {
-      return branchTypeId;
-    }
-    return selectedTypes[0]?.id ?? businessTypes[0]?.id ?? '';
-  }, [branchTypeId, businessTypes, selectedTypes]);
+  const defaultFieldTypeId = useMemo<number | ''>(
+    () => branchTypeId ?? businessTypes[0]?.id ?? '',
+    [branchTypeId, businessTypes],
+  );
 
-  const toggleType = (type: BusinessType) => {
-    setTouchedTypes(true);
-    setSelectedTypeIds((prev) => {
-      const base = touchedTypes ? prev : activeTypeIds;
-      return base.includes(type.id) ? base.filter((id) => id !== type.id) : [...base, type.id];
-    });
+  const handleDeleteField = async () => {
+    if (!confirmDeleteField) return;
+    try {
+      await deleteField.mutateAsync(confirmDeleteField.id);
+      setCustomValues((prev) => {
+        const next = { ...prev };
+        delete next[confirmDeleteField.key];
+        return next;
+      });
+      showToast('success', 'Field removed.');
+      setConfirmDeleteField(null);
+    } catch (err) {
+      showToast('error', apiErrorMessage(err, 'Could not remove the field.'));
+    }
   };
 
   const setCustomValue = (key: string, value: unknown) => {
@@ -167,18 +309,24 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
   };
 
   const total = useMemo(
-    () => REVENUE_FIELDS.reduce((sum, field) => sum + parseMoney(values[field.key] || '0'), 0),
-    [values],
+    () =>
+      isHostel
+        ? parseMoney(totalCollected || '0')
+        : REVENUE_FIELDS.reduce((sum, field) => sum + parseMoney(values[field.key] || '0'), 0),
+    [isHostel, totalCollected, values],
   );
 
-  /** Numeric context for calculated-field previews (mirrors what the server computes). */
+  /** Numeric context for calculated-field previews (mirrors the server's base vars). */
   const formulaContext = useMemo(() => {
     const context: Record<string, unknown> = {
-      rooms_rev: parseMoney(values.rooms_rev || '0'),
-      bar_rev: parseMoney(values.bar_rev || '0'),
-      food_rev: parseMoney(values.food_rev || '0'),
-      sauna_rev: parseMoney(values.sauna_rev || '0'),
+      rooms_rev: isHostel ? 0 : parseMoney(values.rooms_rev || '0'),
+      bar_rev: isHostel ? 0 : parseMoney(values.bar_rev || '0'),
+      food_rev: isHostel ? 0 : parseMoney(values.food_rev || '0'),
+      sauna_rev: isHostel ? 0 : parseMoney(values.sauna_rev || '0'),
+      other_rev: isHostel ? 0 : parseMoney(values.other_rev || '0'),
       total_rev: total,
+      expenses: parseMoney(expenses || '0'),
+      cash_handed_over: parseMoney(cashHandedOver || '0'),
       ...customValues,
     };
     const calculatedFields = [...fieldsByType.values()]
@@ -193,18 +341,17 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
       Object.assign(context, computeCalculatedFields(calculatedFields, context));
     }
     return context;
-  }, [values, customValues, total, fieldsByType]);
+  }, [isHostel, values, expenses, cashHandedOver, customValues, total, fieldsByType]);
 
-  const setField = (key: RevenueField['key'], raw: string) => {
+  const setField = (key: RevenueKey, raw: string) => {
     setValues((prev) => ({ ...prev, [key]: formatMoney(raw) }));
     setErrors((prev) => ({ ...prev, [key]: '' }));
   };
 
-  const fileKey = (file: File) => `${file.name}::${file.size}::${file.lastModified}`;
-
-  const addFiles = (incoming: File[]) => {
+  const addFiles = (group: AttachGroup, incoming: File[]) => {
     if (incoming.length === 0) return;
-    setAttachments((prev) => {
+    const setList = group === 'receipt' ? setReceiptFiles : setExpenseFiles;
+    setList((prev) => {
       const existing = new Set(prev.map(fileKey));
       const merged = [...prev];
       for (const file of incoming) {
@@ -213,55 +360,62 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
         existing.add(key);
         merged.push(file);
         if (file.type.startsWith('image/')) {
-          setPreviews((p) => (p[key] ? p : { ...p, [key]: URL.createObjectURL(file) }));
+          const previewKey = `${group}:${key}`;
+          setPreviews((p) => (p[previewKey] ? p : { ...p, [previewKey]: URL.createObjectURL(file) }));
         }
       }
       return merged;
     });
-    setErrors((prev) => ({ ...prev, attachments: '' }));
+    setErrors((prev) => ({ ...prev, [group === 'receipt' ? 'receipt_photos' : 'expense_receipts']: '' }));
   };
 
-  const removeAttachment = (file: File) => {
-    const key = fileKey(file);
+  const removeFile = (group: AttachGroup, file: File) => {
+    const previewKey = `${group}:${fileKey(file)}`;
     setPreviews((prev) => {
       const next = { ...prev };
-      if (next[key]) URL.revokeObjectURL(next[key]);
-      delete next[key];
+      if (next[previewKey]) URL.revokeObjectURL(next[previewKey]);
+      delete next[previewKey];
       return next;
     });
-    setAttachments((prev) => prev.filter((f) => fileKey(f) !== key));
-  };
-
-  const handleFolderPick = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
-    setZipping(true);
-    try {
-      const { default: JSZip } = await import('jszip');
-      const zip = new JSZip();
-      const files = Array.from(fileList);
-      const root = files[0]?.webkitRelativePath?.split('/')[0] ?? 'folder';
-      for (const file of files) {
-        const rel = file.webkitRelativePath || file.name;
-        zip.file(rel, file);
-      }
-      const blob = await zip.generateAsync({ type: 'blob' });
-      addFiles([new File([blob], `${root}.zip`, { type: 'application/zip' })]);
-    } catch {
-      showToast('error', 'Could not package the folder. Try zipping it yourself and uploading.');
-    } finally {
-      setZipping(false);
-    }
+    const setList = group === 'receipt' ? setReceiptFiles : setExpenseFiles;
+    setList((prev) => prev.filter((f) => fileKey(f) !== fileKey(file)));
   };
 
   const validate = (): boolean => {
     const next: Record<string, string> = {};
     if (!date) next.date = 'Please choose a date.';
-    if (attachments.length === 0) next.attachments = 'Attach at least one file.';
-    if (REVENUE_FIELDS.every((f) => parseMoney(values[f.key] || '0') <= 0)) {
-      next.rooms_rev = 'Enter at least one revenue amount.';
+
+    if (isHostel) {
+      if (bedsOccupied.trim() === '') {
+        next.beds_occupied = 'Enter the total beds occupied.';
+      } else if (!Number.isInteger(Number(bedsOccupied)) || Number(bedsOccupied) < 0) {
+        next.beds_occupied = 'Beds occupied must be a whole number (0 or more).';
+      }
+      if (totalCollected.trim() === '') {
+        next.total_rev = 'Enter the total collected today.';
+      }
+    } else {
+      for (const field of REVENUE_FIELDS) {
+        if (field.required && values[field.key].trim() === '') {
+          next[field.key] = `Enter ${field.label.toLowerCase()} revenue (use 0 if none).`;
+        }
+      }
     }
+
     if (expenses.trim() === '') next.expenses = 'Enter expenses (use 0 if none).';
     if (cashHandedOver.trim() === '') next.cash_handed_over = 'Enter the cash handed over.';
+
+    if (receiptFiles.length === 0) {
+      next.receipt_photos = 'Attach at least one receipt photo.';
+    } else if (receiptFiles.length > ATTACHMENT_LIMIT) {
+      next.receipt_photos = `You can attach at most ${ATTACHMENT_LIMIT} files.`;
+    }
+    if (expenseFiles.length === 0) {
+      next.expense_receipts = 'Attach at least one expense receipt.';
+    } else if (expenseFiles.length > ATTACHMENT_LIMIT) {
+      next.expense_receipts = `You can attach at most ${ATTACHMENT_LIMIT} files.`;
+    }
+
     for (const type of selectedTypes) {
       for (const field of fieldsByType.get(type.id) ?? []) {
         if (field.type === 'calculated') continue;
@@ -271,39 +425,66 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
         }
       }
     }
+
     setErrors(next);
     return Object.keys(next).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate() || attachments.length === 0) return;
-    await onSubmit({
+    if (!validate()) return;
+
+    const common = {
       report_date: date,
-      rooms_rev: parseMoney(values.rooms_rev || '0'),
-      bar_rev: parseMoney(values.bar_rev || '0'),
-      food_rev: parseMoney(values.food_rev || '0'),
-      sauna_rev: parseMoney(values.sauna_rev || '0'),
       expenses: parseMoney(expenses || '0'),
       cash_handed_over: parseMoney(cashHandedOver || '0'),
       comment: comment.trim() || null,
       business_type_ids: activeTypeIds,
-      attachments,
+      receipt_photos: receiptFiles,
+      expense_receipts: expenseFiles,
       custom_values: customValues,
-    });
+    };
+
+    await onSubmit(
+      isHostel
+        ? {
+            ...common,
+            beds_occupied: Number(bedsOccupied),
+            total_rev: parseMoney(totalCollected || '0'),
+          }
+        : {
+            ...common,
+            rooms_rev: parseMoney(values.rooms_rev || '0'),
+            bar_rev: parseMoney(values.bar_rev || '0'),
+            food_rev: parseMoney(values.food_rev || '0'),
+            sauna_rev: parseMoney(values.sauna_rev || '0'),
+            other_rev: parseMoney(values.other_rev || '0'),
+          },
+    );
   };
+
+  const uploadingCount = receiptFiles.length + expenseFiles.length;
+  const uploadingSize = [...receiptFiles, ...expenseFiles].reduce((sum, f) => sum + f.size, 0);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <FormHero
         icon={Receipt}
-        title="Daily revenue report"
-        description="Pick the business types you operated today, capture revenue, then attach your files."
+        title={isHostel ? `${branchName} - Daily Report` : `${branchName} - Daily Sales`}
+        description={
+          isHostel
+            ? `Daily operations report for ${branchName}. Please fill out all required fields accurately. * Indicates required question`
+            : 'End of day sales report — submit once daily. * Indicates required question'
+        }
       />
 
-      <FormSection title="Report details" icon={CalendarDays} description="The day this report covers and the business types included.">
+      <FormSection
+        title="Report details"
+        icon={CalendarDays}
+        description="The day this report covers and who is submitting it."
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="Report date" icon={CalendarDays} required error={errors.date}>
+          <FormField label="Date" icon={CalendarDays} required error={errors.date}>
             <input
               type="date"
               value={date}
@@ -311,67 +492,87 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
               className={formInputClass}
             />
           </FormField>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Business types <span className="text-red-500">*</span>
-          </label>
-          {businessTypes.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-500">
-              No business types are set up yet. An administrator can add them under Configuration.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {businessTypes.map((type) => {
-                const active = activeTypeIds.includes(type.id);
-                return (
-                  <button
-                    key={type.id}
-                    type="button"
-                    onClick={() => toggleType(type)}
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors',
-                      active
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50',
-                    )}
-                  >
-                    <Building2 className="h-4 w-4" />
-                    {type.name}
-                    {active && <CheckSquare className="h-4 w-4" />}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <p className="mt-2 text-xs text-gray-500">
-            Select every type you recorded revenue for today. Add one only if it applied.
-          </p>
+          <FormField label="Manager Name" icon={User} required>
+            <input
+              type="text"
+              value={managerName}
+              readOnly
+              className={`${formInputClass} bg-gray-50 text-gray-600`}
+            />
+          </FormField>
         </div>
       </FormSection>
 
-      <FormSection title="Revenue" icon={CircleDollarSign} description="Enter the day's takings for each stream.">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {REVENUE_FIELDS.map((field) => (
+      {isHostel ? (
+        <FormSection
+          title="Occupancy & collection"
+          icon={BedDouble}
+          description="How many beds were taken and what was collected today."
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="Total Beds Occupied" icon={BedDouble} required error={errors.beds_occupied}>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={1}
+                value={bedsOccupied}
+                onChange={(e) => {
+                  setBedsOccupied(e.target.value);
+                  setErrors((prev) => ({ ...prev, beds_occupied: '' }));
+                }}
+                placeholder="0"
+                className={formInputClass}
+              />
+            </FormField>
             <MoneyInput
-              key={field.key}
-              label={field.label}
-              value={values[field.key]}
-              onChange={(e) => setField(field.key, e.target.value)}
-              error={errors[field.key]}
+              label="Total Collected Today"
+              required
+              value={totalCollected}
+              onChange={(e) => {
+                setTotalCollected(formatMoney(e.target.value));
+                setErrors((prev) => ({ ...prev, total_rev: '' }));
+              }}
+              error={errors.total_rev}
               placeholder="0"
             />
-          ))}
-        </div>
+          </div>
 
-        <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
-          <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
-            <Wallet className="h-4 w-4 text-blue-600" /> Total Revenue
-          </span>
-          <span className="text-2xl font-bold text-blue-700">{formatCurrency(total)}</span>
-        </div>
-      </FormSection>
+          <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+            <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <Wallet className="h-4 w-4 text-blue-600" /> Total Collected Today
+            </span>
+            <span className="text-2xl font-bold text-blue-700">{formatCurrency(total)}</span>
+          </div>
+        </FormSection>
+      ) : (
+        <FormSection
+          title="Revenue"
+          icon={CircleDollarSign}
+          description="Enter the day's takings for each stream."
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {REVENUE_FIELDS.map((field) => (
+              <MoneyInput
+                key={field.key}
+                label={field.label}
+                required={field.required}
+                value={values[field.key]}
+                onChange={(e) => setField(field.key, e.target.value)}
+                error={errors[field.key]}
+                placeholder="0"
+              />
+            ))}
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+            <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <Wallet className="h-4 w-4 text-blue-600" /> Total Revenue
+            </span>
+            <span className="text-2xl font-bold text-blue-700">{formatCurrency(total)}</span>
+          </div>
+        </FormSection>
+      )}
 
       <FormSection
         title="Handover"
@@ -380,7 +581,8 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <MoneyInput
-            label="Expenses (UGX)"
+            label="Expenses"
+            required
             value={expenses}
             onChange={(e) => {
               setExpenses(formatMoney(e.target.value));
@@ -390,7 +592,8 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
             placeholder="0"
           />
           <MoneyInput
-            label="Cash Handed Over (UGX)"
+            label="Cash Handed Over"
+            required
             value={cashHandedOver}
             onChange={(e) => {
               setCashHandedOver(formatMoney(e.target.value));
@@ -411,19 +614,6 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
             </span>
           </div>
         )}
-
-        <FormField label="Comment / Problem Faced Today" icon={MessageSquareText}>
-          <textarea
-            className={`${formTextareaClass} min-h-[100px]`}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="Write any problem, e.g. power outage, guest issue, stock finished…"
-            maxLength={2000}
-          />
-          {comment.length > 0 && (
-            <p className="text-xs text-gray-400">{comment.length}/2000</p>
-          )}
-        </FormField>
       </FormSection>
 
       {selectedTypes.map((type) => {
@@ -482,111 +672,55 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
         );
       })}
 
-      <Button type="button" variant="outline"         onClick={() => setFieldModalTypeId(defaultFieldTypeId === '' ? null : defaultFieldTypeId)}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setFieldModalTypeId(defaultFieldTypeId === '' ? null : defaultFieldTypeId)}
+      >
         <Plus className="mr-1.5 h-4 w-4" /> Add another field
       </Button>
 
       <FormSection
-        title="Attachments"
+        title="Uploads"
         icon={ImageIcon}
-        description="Upload a single file, several files, or a whole folder. Folders are zipped automatically."
+        description="Both uploads are required. Add photos directly, a folder (zipped automatically) or a ready-made zip."
       >
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => addFiles(Array.from(e.target.files ?? []))}
+        <UploadZone
+          group="receipt"
+          title={isHostel ? 'Receipt Photos' : 'Receipt Photo'}
+          files={receiptFiles}
+          previews={previews}
+          error={errors.receipt_photos}
+          onAdd={(files) => addFiles('receipt', files)}
+          onRemove={(file) => removeFile('receipt', file)}
         />
-        <input
-          ref={zipRef}
-          type="file"
-          accept=".zip,.gz,.tar,.rar,.7z,application/zip"
-          className="hidden"
-          onChange={(e) => {
-            addFiles(Array.from(e.target.files ?? []));
-            e.target.value = '';
-          }}
+        <UploadZone
+          group="expense"
+          title={isHostel ? 'Expense Receipt Photos' : 'Expense Receipt Photo'}
+          files={expenseFiles}
+          previews={previews}
+          error={errors.expense_receipts}
+          onAdd={(files) => addFiles('expense', files)}
+          onRemove={(file) => removeFile('expense', file)}
         />
-        <input
-          ref={folderRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            void handleFolderPick(e.target.files);
-            e.target.value = '';
-          }}
-          {...({ webkitdirectory: '', directory: '' } as Record<string, string>)}
-        />
+      </FormSection>
 
-        {attachments.length === 0 ? (
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 py-10 text-gray-500 transition-colors hover:border-blue-400 hover:text-blue-600"
-          >
-            <ImageIcon className="h-7 w-7" />
-            <span className="text-sm font-medium">Tap to choose files</span>
-            <span className="text-xs text-gray-400">Photos, documents, zips or spreadsheets</span>
-          </button>
-        ) : (
-          <ul className="space-y-2">
-            {attachments.map((file) => {
-              const key = fileKey(file);
-              const previewUrl = previews[key];
-              return (
-                <li
-                  key={key}
-                  className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-2.5"
-                >
-                  {previewUrl ? (
-                    <img src={previewUrl} alt={file.name} className="h-11 w-11 rounded-lg object-cover" />
-                  ) : (
-                    <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
-                      {file.name.toLowerCase().endsWith('.zip') || file.name.toLowerCase().endsWith('.gz') ? (
-                        <FolderArchive className="h-5 w-5" />
-                      ) : (
-                        <Paperclip className="h-5 w-5" />
-                      )}
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-800">{file.name}</p>
-                    <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(file)}
-                    className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                    aria-label={`Remove ${file.name}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-            <Plus className="mr-1.5 h-4 w-4" /> Add files
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            loading={zipping}
-            onClick={() => folderRef.current?.click()}
-          >
-            <FolderPlus className="mr-1.5 h-4 w-4" /> Add folder
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => zipRef.current?.click()}>
-            <FolderArchive className="mr-1.5 h-4 w-4" /> Add zip
-          </Button>
-        </div>
-        {errors.attachments && <p className="text-sm text-red-600">{errors.attachments}</p>}
+      <FormSection
+        title="Comment"
+        icon={MessageSquareText}
+        description="Anything the office should know about today (optional)."
+      >
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-medium text-gray-700">Comment / Problem Faced Today</span>
+          <textarea
+            className={`${formTextareaClass} min-h-[100px]`}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Write any problem, e.g. power outage, guest issue, stock finished…"
+            maxLength={2000}
+          />
+          {comment.length > 0 && <p className="text-xs text-gray-400">{comment.length}/2000</p>}
+        </label>
       </FormSection>
 
       {errorMessage && (
@@ -600,7 +734,7 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
               <div className="flex items-center justify-between text-xs font-medium text-gray-500">
                 <span className="truncate">
                   {uploadProgress !== null && uploadProgress !== undefined
-                    ? `Uploading ${attachments.length} file${attachments.length === 1 ? '' : 's'} (${formatFileSize(attachments.reduce((sum, f) => sum + f.size, 0))})`
+                    ? `Uploading ${uploadingCount} file${uploadingCount === 1 ? '' : 's'} (${formatFileSize(uploadingSize)})`
                     : 'Preparing upload…'}
                 </span>
                 <span className="ml-2 shrink-0 tabular-nums">{uploadProgress ?? 0}%</span>
@@ -619,7 +753,7 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
             loading={submitting}
             className={submitting ? 'shrink-0' : 'ml-auto w-full sm:w-auto'}
           >
-            {submitting ? 'Submitting…' : 'Submit Report'}
+            {submitting ? 'Submitting…' : 'Submit'}
           </Button>
         </div>
       </FormFooter>
@@ -636,17 +770,6 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
         defaultScope="report"
         defaultBusinessTypeId={editingField?.business_type_id ?? fieldModalTypeId ?? defaultFieldTypeId}
         businessTypes={businessTypes}
-        onSaved={(field) => {
-          if (field.business_type_id) {
-            setTouchedTypes(true);
-            setSelectedTypeIds((prev) => {
-              const base = touchedTypes ? prev : activeTypeIds;
-              return base.includes(field.business_type_id as number)
-                ? base
-                : [...base, field.business_type_id as number];
-            });
-          }
-        }}
       />
 
       <Modal

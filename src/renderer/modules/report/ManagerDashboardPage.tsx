@@ -45,6 +45,7 @@ export default function ManagerDashboardPage() {
     { name: 'Bar', value: todayReport?.bar_rev ?? 0, fill: '#06b6d4' },
     { name: 'Food', value: todayReport?.food_rev ?? 0, fill: '#10b981' },
     { name: 'Sauna', value: todayReport?.sauna_rev ?? 0, fill: '#f59e0b' },
+    { name: 'Other', value: todayReport?.other_rev ?? 0, fill: '#8b5cf6' },
   ];
 
   const tiles: { label: string; value: string; icon: typeof Wallet; color: CardColor; badge: string }[] = [

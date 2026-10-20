@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { Download, RefreshCw } from 'lucide-react';
+import { CheckCheck, CheckCircle2, Circle, Download, RefreshCw } from 'lucide-react';
 import { AdminShell } from '../../shared/components/layout/AdminShell';
 import { Card } from '../../shared/components/cards/Card';
 import { Button } from '../../shared/components/buttons/Button';
-import { Badge } from '../../shared/components/badges/Badge';
 import { Table, type Column } from '../../shared/components/tables/Table';
 import { Input } from '../../shared/components/inputs/Input';
-import { ReceiptThumb } from './ReceiptThumb';
 import { StatTiles } from './StatTiles';
 import { RevenueByBranchChart, RevenueTrendChart } from './DashboardCharts';
 import { useBranches, useDashboardSummary, useDashboardTrend, useDownloadReportExport } from './AdminQueries';
@@ -14,6 +12,29 @@ import { formatCurrency } from '../../shared/utils/formatCurrency';
 import { formatDate, toISODate } from '../../shared/utils/formatDateTime';
 import { useToast } from '../../app/contexts/useToast';
 import type { DashboardRow } from '../../shared/types/models';
+
+/** Compact table figure: 350k / 1.4M / — (matches the client's dashboard mock). */
+function compact(value: number): string {
+  if (!value) return '—';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `${(value / 1_000_000).toLocaleString('en-UG', { maximumFractionDigits: 1 })}M`;
+  }
+  if (abs >= 1_000) return `${Math.round(value / 1_000)}k`;
+  return value.toLocaleString('en-UG');
+}
+
+/** 2025-10-19 -> 19/10/2025 */
+function slashDate(iso: string): string {
+  const [year, month, day] = iso.slice(0, 10).split('-');
+  return `${day}/${month}/${year}`;
+}
+
+function dayLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+}
 
 export default function AdminDashboardPage() {
   const { showToast } = useToast();
@@ -40,11 +61,12 @@ export default function AdminDashboardPage() {
       bar: acc.bar + r.bar_rev,
       food: acc.food + r.food_rev,
       sauna: acc.sauna + r.sauna_rev,
+      other: acc.other + (r.other_rev ?? 0),
       total: acc.total + r.total_rev,
       expenses: acc.expenses + (r.expenses ?? 0),
       cash: acc.cash + (r.cash_handed_over ?? 0),
     }),
-    { rooms: 0, bar: 0, food: 0, sauna: 0, total: 0, expenses: 0, cash: 0 },
+    { rooms: 0, bar: 0, food: 0, sauna: 0, other: 0, total: 0, expenses: 0, cash: 0 },
   );
 
   const chartData = rows.map((r) => ({
@@ -53,7 +75,12 @@ export default function AdminDashboardPage() {
     bar: r.bar_rev,
     food: r.food_rev,
     sauna: r.sauna_rev,
+    other: r.other_rev ?? 0,
   }));
+
+  const branchCount = allRows.length;
+  const submittedCount = data?.submitted_count ?? 0;
+  const allSubmitted = branchCount > 0 && submittedCount >= branchCount;
 
   const customMeta = data?.custom_fields ?? [];
   const customTotals = data?.custom_grand_totals ?? {};
@@ -73,45 +100,41 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const categoryCell = (r: DashboardRow, value: number) =>
+    r.business_type === 'hostel' ? (
+      <span className="text-gray-300">—</span>
+    ) : (
+      compact(value)
+    );
+
   const columns: Column<DashboardRow>[] = [
-    { key: 'branch_name', header: 'Branch', render: (r) => <span className="font-medium text-gray-900">{r.branch_name}</span> },
-    { key: 'rooms_rev', header: 'Rooms', align: 'right', render: (r) => formatCurrency(r.rooms_rev) },
-    { key: 'bar_rev', header: 'Bar', align: 'right', render: (r) => formatCurrency(r.bar_rev) },
-    { key: 'food_rev', header: 'Food', align: 'right', render: (r) => formatCurrency(r.food_rev) },
-    { key: 'sauna_rev', header: 'Sauna', align: 'right', render: (r) => formatCurrency(r.sauna_rev) },
+    { key: 'date', header: 'Date', render: (r) => slashDate(r.date) },
+    {
+      key: 'branch_name',
+      header: 'Branch',
+      render: (r) => <span className="font-medium text-gray-900">{r.branch_name}</span>,
+    },
+    { key: 'rooms_rev', header: 'Rooms', align: 'right', render: (r) => categoryCell(r, r.rooms_rev) },
+    { key: 'bar_rev', header: 'Bar', align: 'right', render: (r) => categoryCell(r, r.bar_rev) },
+    { key: 'food_rev', header: 'Food', align: 'right', render: (r) => categoryCell(r, r.food_rev) },
+    { key: 'sauna_rev', header: 'Sauna', align: 'right', render: (r) => categoryCell(r, r.sauna_rev) },
     {
       key: 'total_rev',
       header: 'Total',
       align: 'right',
-      render: (r) => <span className="font-semibold text-blue-700">{formatCurrency(r.total_rev)}</span>,
+      render: (r) => <span className="font-semibold text-blue-700">{compact(r.total_rev)}</span>,
     },
-    { key: 'expenses', header: 'Expenses', align: 'right', render: (r) => formatCurrency(r.expenses ?? 0) },
+    { key: 'manager_name', header: 'Handover Manager', render: (r) => r.manager_name ?? '—' },
     {
-      key: 'cash_handed_over',
-      header: 'Cash Handed',
-      align: 'right',
-      render: (r) => <span className="font-medium text-emerald-700">{formatCurrency(r.cash_handed_over ?? 0)}</span>,
-    },
-    { key: 'manager_name', header: 'Manager', render: (r) => r.manager_name ?? '—' },
-    {
-      key: 'attachments',
-      header: 'Attachments',
+      key: 'receipt_photo',
+      header: 'Receipt Photo',
       align: 'center',
-      render: (r) => (
-        <ReceiptThumb
-          reportId={r.report_id}
-          url={r.first_attachment_url}
-          isImage={r.first_attachment_is_image}
-          count={r.attachments_count}
-          attachments={r.attachments}
-        />
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      align: 'center',
-      render: (r) => (r.status === 'Submitted' ? <Badge variant="success">Submitted</Badge> : <Badge variant="warning">Pending</Badge>),
+      render: (r) =>
+        r.has_receipt_photo ? (
+          <CheckCircle2 className="mx-auto h-5 w-5 text-emerald-600" aria-label="Receipt photo attached" />
+        ) : (
+          <Circle className="mx-auto h-5 w-5 text-gray-300" aria-label="No receipt photo" />
+        ),
     },
   ];
 
@@ -120,7 +143,12 @@ export default function AdminDashboardPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Daily Reports</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900">Frama Dashboard</h1>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                Live
+              </span>
+            </div>
             <p className="text-sm text-gray-500 mt-1">All branches &middot; {formatDate(date)}</p>
           </div>
           <div className="flex gap-2">
@@ -134,13 +162,11 @@ export default function AdminDashboardPage() {
         </div>
 
         <StatTiles
-          grandTotal={totals.total}
           rooms={totals.rooms}
           bar={totals.bar}
           food={totals.food}
           sauna={totals.sauna}
-          submitted={rows.filter((r) => r.status === 'Submitted').length}
-          pending={rows.filter((r) => r.status === 'Pending').length}
+          other={totals.other}
         />
 
         <Card className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -161,6 +187,14 @@ export default function AdminDashboardPage() {
           </div>
         </Card>
 
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white">
+          <span>TODAY &bull; {dayLabel(date)}</span>
+          <span className="flex items-center gap-1.5">
+            {submittedCount}/{branchCount} Branches Submitted
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
+        </div>
+
         <Table
           columns={columns}
           data={rows}
@@ -170,15 +204,22 @@ export default function AdminDashboardPage() {
           footer={
             rows.length > 0 ? (
               <tr>
-                <td className="px-4 py-3 text-sm text-gray-700">Grand Total</td>
-                <td className="px-4 py-3 text-right text-sm">{formatCurrency(totals.rooms)}</td>
-                <td className="px-4 py-3 text-right text-sm">{formatCurrency(totals.bar)}</td>
-                <td className="px-4 py-3 text-right text-sm">{formatCurrency(totals.food)}</td>
-                <td className="px-4 py-3 text-right text-sm">{formatCurrency(totals.sauna)}</td>
-                <td className="px-4 py-3 text-right text-sm text-blue-700">{formatCurrency(totals.total)}</td>
-                <td className="px-4 py-3 text-right text-sm">{formatCurrency(totals.expenses)}</td>
-                <td className="px-4 py-3 text-right text-sm text-emerald-700">{formatCurrency(totals.cash)}</td>
-                <td className="px-4 py-3" colSpan={3} />
+                <td colSpan={columns.length} className="px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className="font-semibold text-gray-900">
+                      TOTAL TODAY: {formatCurrency(totals.total)}
+                    </span>
+                    <span className={`flex items-center gap-1.5 ${allSubmitted ? 'text-emerald-700' : 'text-amber-700'}`}>
+                      {allSubmitted ? (
+                        <>
+                          <CheckCheck className="h-4 w-4" /> All Branches Complete
+                        </>
+                      ) : (
+                        `${submittedCount}/${branchCount} Branches Submitted`
+                      )}
+                    </span>
+                  </div>
+                </td>
               </tr>
             ) : undefined
           }

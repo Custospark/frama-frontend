@@ -28,6 +28,7 @@ const BRANCH_SERIES = [
   { key: 'bar', name: 'Bar', color: CHART_THEME.series[6] },
   { key: 'food', name: 'Food', color: CHART_THEME.series[1] },
   { key: 'sauna', name: 'Sauna', color: CHART_THEME.series[2] },
+  { key: 'other', name: 'Other', color: CHART_THEME.series[3] },
 ] as const;
 
 type TrendRow = TrendPoint & { label: string };
@@ -120,7 +121,7 @@ export function RevenueTrendChart({ data }: { data: TrendPoint[] }) {
   );
 }
 
-export function RevenueByBranchChart({ data, branchCount }: { data: { name: string; rooms: number; bar: number; food: number; sauna: number }[]; branchCount: number }) {
+export function RevenueByBranchChart({ data, branchCount }: { data: { name: string; rooms: number; bar: number; food: number; sauna: number; other: number }[]; branchCount: number }) {
   if (data.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-5">

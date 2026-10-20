@@ -24,7 +24,7 @@ import {
   downloadReportAttachmentsZip,
   saveBlob,
 } from './ReportQueries';
-import type { Report } from '../../shared/types/models';
+import type { Report, ReportAttachment } from '../../shared/types/models';
 
 interface ReportSubmittedProps {
   report: Report;
@@ -37,12 +37,16 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
   const { user } = useAuth();
   const { showToast } = useToast();
   const [downloadingId, setDownloadingId] = useState<number | 'all' | null>(null);
-  const attachments = report.attachments ?? [];
+  const receiptPhotos = report.receipt_photos ?? [];
+  const expenseReceipts = report.expense_receipts ?? [];
+  const totalAttachments = receiptPhotos.length + expenseReceipts.length;
+  const isHostel = report.beds_occupied !== null && report.beds_occupied !== undefined;
   const breakdown: Array<[string, number]> = [
     ['Rooms', report.rooms_rev],
     ['Bar', report.bar_rev],
     ['Food', report.food_rev],
     ['Sauna', report.sauna_rev],
+    ['Other', report.other_rev],
   ];
 
   const handleDownloadOne = async (id: number, name: string) => {
@@ -68,6 +72,30 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
       setDownloadingId(null);
     }
   };
+
+  const renderAttachment = (file: ReportAttachment) => (
+    <li key={file.id} className="flex items-center gap-3 py-2">
+      {file.is_image ? (
+        <img src={file.url} alt={file.original_name} className="h-10 w-10 rounded-lg object-cover" />
+      ) : (
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
+          {file.is_archive ? <FileArchive className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-gray-800">{file.original_name}</p>
+        <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
+      </div>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => handleDownloadOne(file.id, file.original_name)}
+        loading={downloadingId === file.id}
+      >
+        <Download className="mr-1.5 h-4 w-4" /> Download
+      </Button>
+    </li>
+  );
 
   return (
     <div className="space-y-4">
@@ -106,12 +134,19 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
           <span className="text-2xl font-bold text-blue-700">{formatCurrency(report.total_rev)}</span>
         </div>
         <div className="divide-y divide-gray-100 border-t border-gray-100 pt-2">
-          {breakdown.map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between py-1.5 text-sm">
-              <span className="text-gray-500">{label}</span>
-              <span className="font-medium text-gray-800">{formatCurrency(value)}</span>
+          {isHostel ? (
+            <div className="flex items-center justify-between py-1.5 text-sm">
+              <span className="text-gray-500">Beds Occupied</span>
+              <span className="font-medium text-gray-800">{report.beds_occupied}</span>
             </div>
-          ))}
+          ) : (
+            breakdown.map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between py-1.5 text-sm">
+                <span className="text-gray-500">{label}</span>
+                <span className="font-medium text-gray-800">{formatCurrency(value)}</span>
+              </div>
+            ))
+          )}
         </div>
       </Card>
 
@@ -148,12 +183,12 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
         </Card>
       )}
 
-      {attachments.length > 0 && (
+      {totalAttachments > 0 && (
         <Card className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800">
               <Paperclip className="h-4 w-4 text-gray-500" /> Attachments
-              <span className="text-xs font-normal text-gray-400">({attachments.length})</span>
+              <span className="text-xs font-normal text-gray-400">({totalAttachments})</span>
             </p>
             <Button
               variant="outline"
@@ -165,31 +200,23 @@ export function ReportSubmitted({ report, date, onNewDate, hideNewDate = true }:
             </Button>
           </div>
 
-          <ul className="divide-y divide-gray-100">
-            {attachments.map((file) => (
-              <li key={file.id} className="flex items-center gap-3 py-2">
-                {file.is_image ? (
-                  <img src={file.url} alt={file.original_name} className="h-10 w-10 rounded-lg object-cover" />
-                ) : (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-400">
-                    {file.is_archive ? <FileArchive className="h-5 w-5" /> : <Paperclip className="h-5 w-5" />}
-                  </span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-800">{file.original_name}</p>
-                  <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDownloadOne(file.id, file.original_name)}
-                  loading={downloadingId === file.id}
-                >
-                  <Download className="mr-1.5 h-4 w-4" /> Download
-                </Button>
-              </li>
-            ))}
-          </ul>
+          {receiptPhotos.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                Receipt photos ({receiptPhotos.length})
+              </p>
+              <ul className="divide-y divide-gray-100">{receiptPhotos.map(renderAttachment)}</ul>
+            </div>
+          )}
+
+          {expenseReceipts.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                Expense receipts ({expenseReceipts.length})
+              </p>
+              <ul className="divide-y divide-gray-100">{expenseReceipts.map(renderAttachment)}</ul>
+            </div>
+          )}
         </Card>
       )}
 

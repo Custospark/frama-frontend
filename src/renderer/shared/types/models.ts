@@ -109,6 +109,8 @@ export interface Report {
   bar_rev: number;
   food_rev: number;
   sauna_rev: number;
+  other_rev: number;
+  beds_occupied: number | null;
   total_rev: number;
   expenses: number;
   cash_handed_over: number;
@@ -116,6 +118,8 @@ export interface Report {
   business_type_ids: number[];
   business_types?: { id: number; name: string; slug: string | null }[];
   attachments?: ReportAttachment[];
+  receipt_photos?: ReportAttachment[];
+  expense_receipts?: ReportAttachment[];
   attachments_count?: number;
   downloads_all_url?: string;
   manager_name: string | null;
@@ -134,6 +138,7 @@ export interface ReportAttachment {
   size: number;
   is_archive: boolean;
   is_image: boolean;
+  group?: 'receipt' | 'expense';
 }
 
 export interface DashboardRow {
@@ -141,10 +146,13 @@ export interface DashboardRow {
   branch_name: string;
   branch_code: string;
   date: string;
+  business_type: string | null;
   rooms_rev: number;
   bar_rev: number;
   food_rev: number;
   sauna_rev: number;
+  other_rev: number;
+  beds_occupied: number | null;
   total_rev: number;
   expenses: number;
   net_rev: number;
@@ -152,6 +160,9 @@ export interface DashboardRow {
   comment: string | null;
   manager_name: string | null;
   attachments_count: number;
+  receipt_count: number;
+  expense_receipt_count: number;
+  has_receipt_photo: boolean;
   first_attachment_url: string | null;
   first_attachment_is_image: boolean;
   attachments?: ReportAttachment[];
@@ -174,6 +185,9 @@ export interface DashboardSummary {
   date: string;
   rows: DashboardRow[];
   grand_total: number;
+  expenses_total: number;
+  net_total: number;
+  cash_handed_total: number;
   submitted_count: number;
   pending_count: number;
   custom_fields?: DashboardCustomFieldMeta[];
