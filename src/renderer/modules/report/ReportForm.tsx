@@ -680,7 +680,7 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
         {expenses !== '' && cashHandedOver !== '' && (
           <div className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
             <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <Wallet className="h-4 w-4 text-emerald-600" /> Expected Cash (Revenue − Expenses)
+              <Wallet className="h-4 w-4 text-emerald-600" /> Expected Cash (Amount Collected Today − Expenses)
             </span>
             <span className="text-2xl font-bold text-emerald-700">
               {formatCurrency(Math.max(total - parseMoney(expenses || '0'), 0))}
