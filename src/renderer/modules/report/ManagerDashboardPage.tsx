@@ -37,7 +37,7 @@ import type { Report } from '../../shared/types/models';
 export default function ManagerDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data: reports = [], isLoading } = useMyReports();
+  const { data: reports = [], isLoading } = useMyReports({ per_page: 100 });
   const [viewing, setViewing] = useState<Report | null>(null);
 
   const today = todayISO();

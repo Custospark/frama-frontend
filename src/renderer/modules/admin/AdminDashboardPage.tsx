@@ -11,18 +11,8 @@ import { useBranches, useDashboardSummary, useDashboardTrend, useDownloadReportE
 import { formatCurrency } from '../../shared/utils/formatCurrency';
 import { formatDate, toISODate } from '../../shared/utils/formatDateTime';
 import { useToast } from '../../app/contexts/useToast';
+import { sumCustomField, sumDashboardRows } from './dashboardTotals';
 import type { DashboardRow } from '../../shared/types/models';
-
-/** Compact table figure: 350k / 1.4M / — (matches the client's dashboard mock). */
-function compact(value: number): string {
-  if (!value) return '—';
-  const abs = Math.abs(value);
-  if (abs >= 1_000_000) {
-    return `${(value / 1_000_000).toLocaleString('en-UG', { maximumFractionDigits: 1 })}M`;
-  }
-  if (abs >= 1_000) return `${Math.round(value / 1_000)}k`;
-  return value.toLocaleString('en-UG');
-}
 
 /** 2025-10-19 -> 19/10/2025 */
 function slashDate(iso: string): string {
@@ -55,19 +45,7 @@ export default function AdminDashboardPage() {
   const allRows = data?.rows ?? [];
   const rows = branchId === 'all' ? allRows : allRows.filter((r) => r.branch_id === branchId);
 
-  const totals = rows.reduce(
-    (acc, r) => ({
-      rooms: acc.rooms + r.rooms_rev,
-      bar: acc.bar + r.bar_rev,
-      food: acc.food + r.food_rev,
-      sauna: acc.sauna + r.sauna_rev,
-      other: acc.other + (r.other_rev ?? 0),
-      total: acc.total + r.total_rev,
-      expenses: acc.expenses + (r.expenses ?? 0),
-      cash: acc.cash + (r.cash_handed_over ?? 0),
-    }),
-    { rooms: 0, bar: 0, food: 0, sauna: 0, other: 0, total: 0, expenses: 0, cash: 0 },
-  );
+  const totals = sumDashboardRows(rows);
 
   const chartData = rows.map((r) => ({
     name: r.branch_name,
@@ -78,12 +56,16 @@ export default function AdminDashboardPage() {
     other: r.other_rev ?? 0,
   }));
 
-  const branchCount = allRows.length;
-  const submittedCount = data?.submitted_count ?? 0;
-  const allSubmitted = branchCount > 0 && submittedCount >= branchCount;
+  const branchCount = rows.length;
+  const submittedCount = rows.filter((row) => row.status === 'Submitted').length;
+  const allSubmitted = branchCount > 0 && submittedCount === branchCount;
 
   const customMeta = data?.custom_fields ?? [];
-  const customTotals = data?.custom_grand_totals ?? {};
+  const customTotals = Object.fromEntries(
+    customMeta
+      .filter((field) => field.aggregate)
+      .map((field) => [field.key, sumCustomField(rows, field.key)]),
+  );
 
   const handleExport = async () => {
     try {
@@ -104,7 +86,7 @@ export default function AdminDashboardPage() {
     r.business_type === 'hostel' ? (
       <span className="text-gray-300">—</span>
     ) : (
-      compact(value)
+      formatCurrency(value)
     );
 
   const columns: Column<DashboardRow>[] = [
@@ -122,7 +104,7 @@ export default function AdminDashboardPage() {
       key: 'total_rev',
       header: 'Total',
       align: 'right',
-      render: (r) => <span className="font-semibold text-blue-700">{compact(r.total_rev)}</span>,
+      render: (r) => <span className="font-semibold text-blue-700">{formatCurrency(r.total_rev)}</span>,
     },
     { key: 'manager_name', header: 'Handover Manager', render: (r) => r.manager_name ?? '—' },
     {
@@ -162,6 +144,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <StatTiles
+          total={totals.total}
           rooms={totals.rooms}
           bar={totals.bar}
           food={totals.food}

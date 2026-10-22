@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCurrency, formatCurrencyCompact } from '../formatCurrency';
+import { formatCurrency } from '../formatCurrency';
 
 describe('formatCurrency', () => {
   it('formats a number with the default currency symbol', () => {
@@ -23,27 +23,5 @@ describe('formatCurrency', () => {
   it('uses a supplied currency code', () => {
     expect(formatCurrency(500, 'USD')).toBe('$ 500');
     expect(formatCurrency(500, 'KES')).toBe('KSh 500');
-  });
-});
-
-describe('formatCurrencyCompact', () => {
-  it('formats thousands as K', () => {
-    expect(formatCurrencyCompact(12_500)).toBe('UGX 12.5K');
-  });
-
-  it('formats millions as M', () => {
-    expect(formatCurrencyCompact(3_400_000)).toBe('UGX 3.4M');
-  });
-
-  it('formats billions as B', () => {
-    expect(formatCurrencyCompact(1_200_000_000)).toBe('UGX 1.2B');
-  });
-
-  it('falls back to full format under a thousand', () => {
-    expect(formatCurrencyCompact(999)).toBe('UGX 999');
-  });
-
-  it('treats null as zero', () => {
-    expect(formatCurrencyCompact(null)).toBe('UGX 0');
   });
 });

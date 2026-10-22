@@ -175,12 +175,6 @@ export function ReportDetails({ report, showMeta = false }: ReportDetailsProps) 
             <span className="text-gray-500">Cash Handed Over</span>
             <span className="font-semibold text-gray-900">{formatCurrency(report.cash_handed_over ?? 0)}</span>
           </div>
-          <div className="flex items-center justify-between py-1.5 text-sm">
-            <span className="text-gray-500">Expected Cash (Amount Collected Today − Expenses)</span>
-            <span className="font-medium text-emerald-700">
-              {formatCurrency((report.total_rev ?? 0) - (report.expenses ?? 0))}
-            </span>
-          </div>
         </div>
       </div>
 

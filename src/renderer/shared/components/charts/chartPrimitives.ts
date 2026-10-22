@@ -11,9 +11,7 @@ export const CHART_THEME = {
 export const PIE_COLORS = CHART_THEME.series;
 
 export function formatAxisCurrency(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}k`;
-  return String(Math.round(value));
+  return Math.round(value).toLocaleString('en-US');
 }
 
 export function chartAverage(values: number[]): number {

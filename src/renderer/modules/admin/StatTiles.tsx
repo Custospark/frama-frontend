@@ -1,9 +1,10 @@
-import { BedDouble, Wine, UtensilsCrossed, Flame, Tag } from 'lucide-react';
+import { BedDouble, Coins, Flame, Tag, UtensilsCrossed, Wine } from 'lucide-react';
 import { DashboardStatCard } from '../../shared/components/cards/DashboardStatCard';
 import type { CardColor } from '../../shared/components/cards/statCardStyles';
-import { formatCurrencyCompact } from '../../shared/utils/formatCurrency';
+import { formatCurrency } from '../../shared/utils/formatCurrency';
 
 interface StatTilesProps {
+  total: number;
   rooms: number;
   bar: number;
   food: number;
@@ -11,18 +12,19 @@ interface StatTilesProps {
   other: number;
 }
 
-/** The five revenue streams the client tracks across all branches. */
-export function StatTiles({ rooms, bar, food, sauna, other }: StatTilesProps) {
+/** Total collected plus the five revenue streams the client tracks. */
+export function StatTiles({ total, rooms, bar, food, sauna, other }: StatTilesProps) {
   const tiles: { label: string; value: string; icon: typeof Tag; color: CardColor; badge: string }[] = [
-    { label: 'Rooms', value: formatCurrencyCompact(rooms), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
-    { label: 'Bar', value: formatCurrencyCompact(bar), icon: Wine, color: 'amber', badge: 'Bar' },
-    { label: 'Food', value: formatCurrencyCompact(food), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
-    { label: 'Sauna', value: formatCurrencyCompact(sauna), icon: Flame, color: 'purple', badge: 'Sauna' },
-    { label: 'Other / Conference', value: formatCurrencyCompact(other), icon: Tag, color: 'blue', badge: 'Other' },
+    { label: 'Total Collected', value: formatCurrency(total), icon: Coins, color: 'blue', badge: 'Total' },
+    { label: 'Rooms', value: formatCurrency(rooms), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
+    { label: 'Bar', value: formatCurrency(bar), icon: Wine, color: 'amber', badge: 'Bar' },
+    { label: 'Food', value: formatCurrency(food), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
+    { label: 'Sauna', value: formatCurrency(sauna), icon: Flame, color: 'purple', badge: 'Sauna' },
+    { label: 'Other / Conference', value: formatCurrency(other), icon: Tag, color: 'blue', badge: 'Other' },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {tiles.map(({ label, value, icon: Icon, color, badge }) => (
         <DashboardStatCard key={label} label={label} value={value} icon={Icon} color={color} badge={badge} />
       ))}

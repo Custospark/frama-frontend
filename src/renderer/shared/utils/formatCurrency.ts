@@ -25,15 +25,3 @@ export function formatCurrency(amount: string | number | null | undefined, curre
 
   return `${symbolFor(code)} ${formatted}`;
 }
-
-/** Compact variant for dashboard tiles: 1.2M / 340K / 12,500. */
-export function formatCurrencyCompact(amount: number | null | undefined, currencyCode?: string): string {
-  const code = (currencyCode || getBusinessCurrency()).toUpperCase();
-  const value = amount ?? 0;
-  const abs = Math.abs(value);
-
-  if (abs >= 1_000_000_000) return `${symbolFor(code)} ${(value / 1_000_000_000).toFixed(1)}B`;
-  if (abs >= 1_000_000) return `${symbolFor(code)} ${(value / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${symbolFor(code)} ${(value / 1_000).toFixed(1)}K`;
-  return formatCurrency(value, code);
-}

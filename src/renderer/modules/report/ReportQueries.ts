@@ -34,7 +34,7 @@ export interface ReportFormValues {
 }
 
 /** Manager: list their branch's recent reports. */
-export function useMyReports(params?: { from?: string; to?: string }) {
+export function useMyReports(params?: { from?: string; to?: string; per_page?: number }) {
   return useQuery({
     queryKey: reportKeys.list(params),
     queryFn: async (): Promise<Report[]> => {

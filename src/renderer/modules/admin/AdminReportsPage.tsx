@@ -153,12 +153,6 @@ function ReportDetail({ report }: { report: Report }) {
             <span className="text-gray-500">Cash Handed Over</span>
             <span className="font-medium text-gray-800">{formatCurrency(report.cash_handed_over)}</span>
           </div>
-          <div className="flex items-center justify-between py-1.5 text-sm">
-            <span className="text-gray-500">Expected Cash</span>
-            <span className="font-semibold text-gray-900">
-              {formatCurrency(report.total_rev - report.expenses)}
-            </span>
-          </div>
         </div>
       </div>
 
