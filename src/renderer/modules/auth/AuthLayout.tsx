@@ -2,6 +2,8 @@ import type { PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
 import {
+  DEVELOPER_NAME,
+  DEVELOPER_URL,
   PRODUCT_NAME,
   SUPPORTING_LINE,
   TAGLINE,
@@ -129,6 +131,23 @@ export function AuthLayout({
             </div>
           </div>
         </main>
+
+        <footer className="border-t border-gray-200 bg-white px-4 py-3 text-center text-xs text-gray-500 lg:hidden">
+          <p>
+            Developed by{' '}
+            <a
+              href={DEVELOPER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-blue-600 underline hover:text-blue-800"
+            >
+              {DEVELOPER_NAME}
+            </a>
+          </p>
+          <p className="mt-0.5 text-gray-400">
+            &copy; {new Date().getFullYear()} Custospark. All rights reserved.
+          </p>
+        </footer>
       </div>
     </div>
   );
