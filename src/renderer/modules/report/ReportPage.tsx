@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CheckCircle2, Eye, FileText, Lock, Unlock } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { CheckCircle2, Eye, FileText, Lock, Pencil, Unlock } from 'lucide-react';
 import { AdminShell } from '../../shared/components/layout/AdminShell';
 import { Card } from '../../shared/components/cards/Card';
 import { Badge } from '../../shared/components/badges/Badge';
@@ -26,11 +26,18 @@ export default function ReportPage() {
   const update = useUpdateReport();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [viewing, setViewing] = useState<Report | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   const existing = reports.find((r) => r.report_date.slice(0, 10) === date) ?? null;
   const canEdit = Boolean(existing?.allow_edit);
   const busy = submit.isPending || update.isPending;
   const progress = update.isPending ? update.progress : submit.progress;
+
+  const editReport = (report: Report) => {
+    setViewing(null);
+    setDate(report.report_date.slice(0, 10));
+    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
 
   const handleSubmit = async (values: ReportFormValues) => {
     setErrorMessage(undefined);
@@ -108,17 +115,19 @@ export default function ReportPage() {
           </Card>
         )}
 
-        <ReportForm
-          key={existing?.id ?? 'new'}
-          date={date}
-          onDateChange={setDate}
-          onSubmit={handleSubmit}
-          submitting={busy}
-          uploadProgress={progress}
-          errorMessage={errorMessage}
-          locked={Boolean(existing) && !canEdit}
-          editingReport={canEdit ? existing : null}
-        />
+        <div ref={formRef} className="scroll-mt-4">
+          <ReportForm
+            key={existing?.id ?? 'new'}
+            date={date}
+            onDateChange={setDate}
+            onSubmit={handleSubmit}
+            submitting={busy}
+            uploadProgress={progress}
+            errorMessage={errorMessage}
+            locked={Boolean(existing) && !canEdit}
+            editingReport={canEdit ? existing : null}
+          />
+        </div>
 
         <p className="flex items-center justify-center gap-1.5 text-center text-xs text-gray-400">
           <CheckCircle2 className="h-3.5 w-3.5" /> Receipt photos and expense receipts are required for every submission.
@@ -129,17 +138,26 @@ export default function ReportPage() {
             <p className="text-sm font-semibold text-gray-800">Recent submissions</p>
             <ul className="divide-y divide-gray-100">
               {reports.slice(0, 5).map((r) => (
-                <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="flex items-center gap-1.5 text-gray-600">
-                    {formatDate(r.report_date)}
-                    {r.allow_edit && <Unlock className="h-3.5 w-3.5 text-amber-600" aria-label="Editable" />}
-                  </span>
-                  <span className="font-medium text-gray-900">
-                    {new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(r.total_rev)}
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={() => setViewing(r)}>
-                    <Eye className="mr-1.5 h-4 w-4" /> View
-                  </Button>
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm sm:gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="flex items-center gap-1.5 text-gray-600">
+                      {formatDate(r.report_date)}
+                      {r.allow_edit && <Unlock className="h-3.5 w-3.5 text-amber-600" aria-label="Editable" />}
+                    </span>
+                    <span className="font-medium text-gray-900">
+                      {new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(r.total_rev)}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {r.allow_edit && (
+                      <Button size="sm" onClick={() => editReport(r)}>
+                        <Pencil className="mr-1.5 h-4 w-4" /> Edit
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setViewing(r)}>
+                      <Eye className="mr-1.5 h-4 w-4" /> View
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>

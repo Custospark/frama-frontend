@@ -182,7 +182,7 @@ export default function ManagerDashboardPage() {
               size="sm"
               onClick={() => navigate(`${ROUTES.MANAGER.NEW_REPORT}?date=${report.report_date}`)}
             >
-              <Pencil className="mr-1.5 h-4 w-4" /> Correct
+              <Pencil className="mr-1.5 h-4 w-4" /> Edit
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => setViewing(report)}>
