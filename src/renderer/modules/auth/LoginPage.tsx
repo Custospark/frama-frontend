@@ -6,7 +6,7 @@ import { useToast } from '../../app/contexts/useToast';
 import { Button } from '../../shared/components/buttons/Button';
 import { PinInput } from '../../shared/components/inputs/PinInput';
 import { apiErrorMessage } from '../../shared/utils/apiErrorMessage';
-import { ROUTES } from '../../app/routes/constants/shared.paths';
+import { ROUTES, homeRouteFor } from '../../app/routes/constants/shared.paths';
 import { AuthLayout } from './AuthLayout';
 import { AUTH_HERO_IMAGES } from './authHeroImages';
 import { PRODUCT_NAME } from '../../shared/brand/framaBrand';
@@ -27,10 +27,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | undefined>();
 
   if (isInitialized && isAuthenticated && user) {
-    const fallback =
-      user.role === 'manager' ? ROUTES.MANAGER.DASHBOARD : ROUTES.ADMIN.DASHBOARD;
     const from = (location.state as LocationState | null)?.from;
-    return <Navigate to={from ?? fallback} replace />;
+    const destination =
+      user.role === 'executive' ? ROUTES.ADMIN.DASHBOARD : from ?? homeRouteFor(user.role);
+    return <Navigate to={destination} replace />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,9 +41,9 @@ export default function LoginPage() {
       const loggedIn = await login(accessCode.trim().toUpperCase(), pin);
       showToast('success', 'Welcome back.');
       const from = (location.state as LocationState | null)?.from;
-      const fallback =
-        loggedIn.role === 'manager' ? ROUTES.MANAGER.DASHBOARD : ROUTES.ADMIN.DASHBOARD;
-      navigate(from ?? fallback, { replace: true });
+      const destination =
+        loggedIn.role === 'executive' ? ROUTES.ADMIN.DASHBOARD : from ?? homeRouteFor(loggedIn.role);
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(apiErrorMessage(err, 'Invalid access code or PIN.'));
     } finally {

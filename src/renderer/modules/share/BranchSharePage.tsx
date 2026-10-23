@@ -73,10 +73,10 @@ export default function BranchSharePage({ slug }: BranchSharePageProps) {
   const tiles: { label: string; value: string; icon: typeof Wallet; color: CardColor; badge: string; sub?: string }[] = [
     { label: "Today's Total", value: formatCurrency(today?.total_rev ?? 0), icon: Wallet, color: 'blue', badge: 'Today' },
     { label: 'This Month', value: formatCurrency(month_total), icon: CalendarDays, color: 'green', badge: 'Month', sub: `${submitted_this_month} report${submitted_this_month === 1 ? '' : 's'} submitted` },
-    { label: 'Rooms', value: formatCurrency(today?.rooms_rev ?? 0), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
-    { label: 'Bar', value: formatCurrency(today?.bar_rev ?? 0), icon: Wine, color: 'amber', badge: 'Bar' },
-    { label: 'Food', value: formatCurrency(today?.food_rev ?? 0), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
-    { label: 'Sauna', value: formatCurrency(today?.sauna_rev ?? 0), icon: Flame, color: 'purple', badge: 'Sauna' },
+    { label: 'Rooms Today', value: formatCurrency(today?.rooms_rev ?? 0), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
+    { label: 'Bar Today', value: formatCurrency(today?.bar_rev ?? 0), icon: Wine, color: 'amber', badge: 'Bar' },
+    { label: 'Food Today', value: formatCurrency(today?.food_rev ?? 0), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
+    { label: 'Sauna Today', value: formatCurrency(today?.sauna_rev ?? 0), icon: Flame, color: 'purple', badge: 'Sauna' },
   ];
 
   return (

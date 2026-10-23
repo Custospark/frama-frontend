@@ -17,6 +17,7 @@ import {
   Trash2,
   User,
   Wallet,
+  X,
 } from 'lucide-react';
 import { Button } from '../../shared/components/buttons/Button';
 import { Modal } from '../../shared/components/modals/Modal';
@@ -57,6 +58,8 @@ interface ReportFormProps {
   locked?: boolean;
   /** Existing report being corrected after an executive enabled editing. */
   editingReport?: Report | null;
+  /** Leave correction mode and return to a blank entry. */
+  onCloseEdit?: () => void;
 }
 
 type RevenueKey = 'rooms_rev' | 'bar_rev' | 'food_rev' | 'sauna_rev' | 'other_rev';
@@ -242,7 +245,7 @@ function UploadZone({ group, title, files, previews, error, onAdd, onRemove }: U
   );
 }
 
-export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint, locked = false, editingReport = null }: ReportFormProps) {
+export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint, locked = false, editingReport = null, onCloseEdit }: ReportFormProps) {
   const editing = editingReport;
   const money = (value: number | null | undefined) =>
     value !== null && value !== undefined ? formatMoney(String(value)) : '';
@@ -829,23 +832,37 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
               </div>
             </div>
           )}
-          <Button
-            type="submit"
-            size="lg"
-            loading={submitting}
-            disabled={locked}
-            className={submitting ? 'shrink-0' : 'ml-auto w-full sm:w-auto'}
-          >
-            {locked
-              ? 'Already submitted'
-              : submitting
-                ? editing
-                  ? 'Saving…'
-                  : 'Submitting…'
-                : editing
-                  ? 'Save corrections'
-                  : 'Submit'}
-          </Button>
+          <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
+            {editing && onCloseEdit && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                disabled={submitting}
+                onClick={onCloseEdit}
+                className="flex-1 sm:flex-none"
+              >
+                <X className="mr-1.5 h-4 w-4" /> Close edit
+              </Button>
+            )}
+            <Button
+              type="submit"
+              size="lg"
+              loading={submitting}
+              disabled={locked}
+              className={submitting ? 'shrink-0' : editing ? 'flex-1 sm:flex-none' : 'w-full sm:w-auto'}
+            >
+              {locked
+                ? 'Already submitted'
+                : submitting
+                  ? editing
+                    ? 'Saving…'
+                    : 'Submitting…'
+                  : editing
+                    ? 'Save corrections'
+                    : 'Submit'}
+            </Button>
+          </div>
         </div>
       </FormFooter>
 

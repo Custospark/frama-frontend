@@ -15,7 +15,7 @@ interface StatTilesProps {
 /** Month-to-date total first, followed by today's collected total and streams. */
 export function StatTiles({ monthTotal, total, rooms, bar, food, sauna }: StatTilesProps) {
   const tiles: { label: string; value: string; icon: typeof Coins; color: CardColor; badge: string }[] = [
-    { label: 'Total This Month', value: formatCurrency(monthTotal), icon: CalendarRange, color: 'green', badge: 'Month' },
+    { label: 'This Month', value: formatCurrency(monthTotal), icon: CalendarRange, color: 'green', badge: 'Month' },
     { label: 'Total Collected Today', value: formatCurrency(total), icon: Coins, color: 'blue', badge: 'Total' },
     { label: 'Rooms Today', value: formatCurrency(rooms), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
     { label: 'Bar Today', value: formatCurrency(bar), icon: Wine, color: 'amber', badge: 'Bar' },

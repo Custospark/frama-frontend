@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { axiosInstance } from '../../app/api/axiosConfig';
 import { DOWNLOAD_TIMEOUT, UPLOAD_TIMEOUT } from '../../app/api/apiConfig';
 import { ENDPOINTS } from '../../shared/api/endpoints/endpoints';
-import type { Report } from '../../shared/types/models';
+import type { Paginated, Report } from '../../shared/types/models';
 
 export const reportKeys = {
   all: ['reports'] as const,
@@ -32,17 +32,26 @@ export interface ReportFormValues {
   custom_values?: Record<string, unknown>;
 }
 
-/** Manager: list their branch's recent reports. */
-export function useMyReports(params?: { from?: string; to?: string; per_page?: number }) {
-  return useQuery({
+/** Manager: list their branch's reports. `data` is the current page and
+ *  `meta` describes the pagination returned by the API. */
+export function useMyReports(params?: {
+  from?: string;
+  to?: string;
+  per_page?: number;
+  page?: number;
+}) {
+  const query = useQuery({
     queryKey: reportKeys.list(params),
-    queryFn: async (): Promise<Report[]> => {
-      const { data } = await axiosInstance.get<{ data: Report[] }>(ENDPOINTS.REPORTS.INDEX, {
+    queryFn: async (): Promise<Paginated<Report>> => {
+      const { data } = await axiosInstance.get<Paginated<Report>>(ENDPOINTS.REPORTS.INDEX, {
         params,
       });
-      return data.data;
+      return data;
     },
+    placeholderData: (previousData) => previousData,
   });
+
+  return { ...query, data: query.data?.data ?? [], meta: query.data?.meta };
 }
 
 function buildReportForm(values: ReportFormValues): FormData {

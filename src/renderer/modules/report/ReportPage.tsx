@@ -19,24 +19,39 @@ import type { Report } from '../../shared/types/models';
 export default function ReportPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [date, setDate] = useState(searchParams.get('date') ?? todayISO());
   const { data: reports = [] } = useMyReports({ per_page: 100 });
   const submit = useSubmitReport();
   const update = useUpdateReport();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [viewing, setViewing] = useState<Report | null>(null);
+  const [dismissedEditId, setDismissedEditId] = useState<number | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   const existing = reports.find((r) => r.report_date.slice(0, 10) === date) ?? null;
-  const canEdit = Boolean(existing?.allow_edit);
+  const canEdit = Boolean(existing?.allow_edit) && existing?.id !== dismissedEditId;
   const busy = submit.isPending || update.isPending;
   const progress = update.isPending ? update.progress : submit.progress;
 
   const editReport = (report: Report) => {
     setViewing(null);
+    setDismissedEditId(null);
     setDate(report.report_date.slice(0, 10));
     requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
+
+  const handleDateChange = (nextDate: string) => {
+    setDismissedEditId(null);
+    setDate(nextDate);
+  };
+
+  const handleCloseEdit = () => {
+    setErrorMessage(undefined);
+    setViewing(null);
+    setDismissedEditId(existing?.id ?? null);
+    setDate(todayISO());
+    setSearchParams({}, { replace: true });
   };
 
   const handleSubmit = async (values: ReportFormValues) => {
@@ -117,15 +132,16 @@ export default function ReportPage() {
 
         <div ref={formRef} className="scroll-mt-4">
           <ReportForm
-            key={existing?.id ?? 'new'}
+            key={`${existing?.id ?? 'new'}-${existing && dismissedEditId === existing.id ? 'closed' : 'open'}`}
             date={date}
-            onDateChange={setDate}
+            onDateChange={handleDateChange}
             onSubmit={handleSubmit}
             submitting={busy}
             uploadProgress={progress}
             errorMessage={errorMessage}
             locked={Boolean(existing) && !canEdit}
             editingReport={canEdit ? existing : null}
+            onCloseEdit={handleCloseEdit}
           />
         </div>
 
@@ -136,31 +152,33 @@ export default function ReportPage() {
         {reports.length > 0 ? (
           <Card className="space-y-3">
             <p className="text-sm font-semibold text-gray-800">Recent submissions</p>
-            <ul className="divide-y divide-gray-100">
-              {reports.slice(0, 5).map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm sm:gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="flex items-center gap-1.5 text-gray-600">
-                      {formatDate(r.report_date)}
-                      {r.allow_edit && <Unlock className="h-3.5 w-3.5 text-amber-600" aria-label="Editable" />}
-                    </span>
-                    <span className="font-medium text-gray-900">
-                      {new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(r.total_rev)}
-                    </span>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {r.allow_edit && (
-                      <Button size="sm" onClick={() => editReport(r)}>
-                        <Pencil className="mr-1.5 h-4 w-4" /> Edit
+            <div className="-mx-1 overflow-x-auto px-1 pb-1">
+              <ul className="min-w-[520px] divide-y divide-gray-100">
+                {reports.slice(0, 5).map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm sm:gap-3">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="flex items-center gap-1.5 text-gray-600">
+                        {formatDate(r.report_date)}
+                        {r.allow_edit && <Unlock className="h-3.5 w-3.5 text-amber-600" aria-label="Editable" />}
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(r.total_rev)}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {r.allow_edit && (
+                        <Button size="sm" onClick={() => editReport(r)}>
+                          <Pencil className="mr-1.5 h-4 w-4" /> Edit
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" onClick={() => setViewing(r)}>
+                        <Eye className="mr-1.5 h-4 w-4" /> View
                       </Button>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => setViewing(r)}>
-                      <Eye className="mr-1.5 h-4 w-4" /> View
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </Card>
         ) : (
           <EmptyState title="No reports yet" description="Your submitted reports will appear here." />

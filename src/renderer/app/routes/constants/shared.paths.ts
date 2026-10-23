@@ -1,3 +1,5 @@
+import type { UserRole } from '../../../shared/types/models';
+
 export const ROUTES = {
   /** The app root is the login page - there is no landing or register page. */
   HOME: '/',
@@ -28,3 +30,8 @@ export const ROUTES = {
     FIELDS: '/admin/fields',
   },
 } as const;
+
+/** Landing route after sign-in for each role. */
+export function homeRouteFor(role: UserRole): string {
+  return role === 'manager' ? ROUTES.MANAGER.DASHBOARD : ROUTES.ADMIN.DASHBOARD;
+}

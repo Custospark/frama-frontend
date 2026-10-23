@@ -24,6 +24,7 @@ import { Badge } from '../../shared/components/badges/Badge';
 import { Card } from '../../shared/components/cards/Card';
 import { Modal } from '../../shared/components/modals/Modal';
 import { Table, type Column } from '../../shared/components/tables/Table';
+import { Pagination } from '../../shared/components/tables/Pagination';
 import { RevenueTrendChart } from '../admin/DashboardCharts';
 import { RevenueMixChart, type RevenueMixSlice } from './ManagerCharts';
 import { ReportDetails } from './ReportDetails';
@@ -38,7 +39,14 @@ import type { Report } from '../../shared/types/models';
 export default function ManagerDashboardPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [page, setPage] = useState(1);
   const { data: reports = [], isLoading } = useMyReports({ per_page: 100 });
+  const {
+    data: pageReports,
+    isLoading: pageLoading,
+    isFetching: pageFetching,
+    meta,
+  } = useMyReports({ page, per_page: 10 });
   const [viewing, setViewing] = useState<Report | null>(null);
 
   const today = todayISO();
@@ -87,7 +95,7 @@ export default function ManagerDashboardPage() {
         { label: "Today's Total", value: formatCurrency(stats.dayTotal), icon: Wallet, color: 'blue', badge: 'Today' },
         { label: 'This Month', value: formatCurrency(stats.month), icon: CheckCircle2, color: 'green', badge: 'Month' },
         {
-          label: 'Rooms Occupied',
+          label: 'Rooms Occupied Today',
           value: todayReport ? String(todayReport.rooms_occupied ?? 0) : '—',
           icon: DoorOpen,
           color: 'indigo',
@@ -118,10 +126,10 @@ export default function ManagerDashboardPage() {
     : [
         { label: "Today's Total", value: formatCurrency(stats.dayTotal), icon: Wallet, color: 'blue', badge: 'Today' },
         { label: 'This Month', value: formatCurrency(stats.month), icon: CheckCircle2, color: 'green', badge: 'Month' },
-        { label: 'Rooms', value: formatCurrency(todayReport?.rooms_rev ?? 0), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
-        { label: 'Bar', value: formatCurrency(todayReport?.bar_rev ?? 0), icon: Wine, color: 'amber', badge: 'Bar' },
-        { label: 'Food', value: formatCurrency(todayReport?.food_rev ?? 0), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
-        { label: 'Sauna', value: formatCurrency(todayReport?.sauna_rev ?? 0), icon: Flame, color: 'purple', badge: 'Sauna' },
+        { label: 'Rooms Today', value: formatCurrency(todayReport?.rooms_rev ?? 0), icon: BedDouble, color: 'indigo', badge: 'Rooms' },
+        { label: 'Bar Today', value: formatCurrency(todayReport?.bar_rev ?? 0), icon: Wine, color: 'amber', badge: 'Bar' },
+        { label: 'Food Today', value: formatCurrency(todayReport?.food_rev ?? 0), icon: UtensilsCrossed, color: 'green', badge: 'Food' },
+        { label: 'Sauna Today', value: formatCurrency(todayReport?.sauna_rev ?? 0), icon: Flame, color: 'purple', badge: 'Sauna' },
       ];
 
   const reportColumns: Column<Report>[] = [
@@ -180,12 +188,22 @@ export default function ManagerDashboardPage() {
           {report.allow_edit && (
             <Button
               size="sm"
-              onClick={() => navigate(`${ROUTES.MANAGER.NEW_REPORT}?date=${report.report_date}`)}
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(`${ROUTES.MANAGER.NEW_REPORT}?date=${report.report_date}`);
+              }}
             >
               <Pencil className="mr-1.5 h-4 w-4" /> Edit
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => setViewing(report)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(event) => {
+              event.stopPropagation();
+              setViewing(report);
+            }}
+          >
             <Eye className="mr-1.5 h-4 w-4" /> View
           </Button>
         </div>
@@ -307,11 +325,19 @@ export default function ManagerDashboardPage() {
           </div>
           <Table
             columns={reportColumns}
-            data={reports}
-            loading={isLoading}
+            data={pageReports}
+            loading={pageLoading}
             rowKey={(report) => report.id}
             onRowClick={(report) => setViewing(report)}
             emptyMessage="No reports submitted yet."
+          />
+          <Pagination
+            page={meta?.current_page ?? page}
+            lastPage={meta?.last_page ?? 1}
+            total={meta?.total ?? pageReports.length}
+            perPage={meta?.per_page ?? 10}
+            loading={pageFetching}
+            onPageChange={setPage}
           />
         </Card>
 

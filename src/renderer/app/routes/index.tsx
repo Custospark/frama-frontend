@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import { ROUTES } from './constants/shared.paths';
+import { ROUTES, homeRouteFor } from './constants/shared.paths';
 import { ProtectedRoute } from './middleware/ProtectedRoute';
 import { PageLoader } from '../../shared/components/loading/Spinner';
 import { useAuth } from '../contexts/useAuth';
@@ -31,12 +31,7 @@ function RoleHome() {
   const { user, isInitialized } = useAuth();
   if (!isInitialized) return <PageLoader />;
   if (!user) return <Navigate to={ROUTES.LOGIN} replace />;
-  return (
-    <Navigate
-      to={user.role === 'manager' ? ROUTES.MANAGER.DASHBOARD : ROUTES.ADMIN.DASHBOARD}
-      replace
-    />
-  );
+  return <Navigate to={homeRouteFor(user.role)} replace />;
 }
 
 export function AppRoutes() {
