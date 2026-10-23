@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCheck, CheckCircle2, Circle, Download, RefreshCw } from 'lucide-react';
+import { CheckCheck, CheckCircle2, Circle, Download, Lock, RefreshCw, Unlock } from 'lucide-react';
 import { AdminShell } from '../../shared/components/layout/AdminShell';
 import { Card } from '../../shared/components/cards/Card';
 import { Button } from '../../shared/components/buttons/Button';
@@ -11,6 +11,7 @@ import { useBranches, useDashboardSummary, useDashboardTrend, useDownloadReportE
 import { formatCurrency } from '../../shared/utils/formatCurrency';
 import { formatDate, toISODate } from '../../shared/utils/formatDateTime';
 import { useToast } from '../../app/contexts/useToast';
+import { useSetReportEditPermission } from '../report/ReportQueries';
 import { sumCustomField, sumDashboardRows } from './dashboardTotals';
 import type { DashboardRow } from '../../shared/types/models';
 
@@ -36,6 +37,7 @@ export default function AdminDashboardPage() {
   const { data: branches = [] } = useBranches();
   const [trendFrom] = useState(() => toISODate(new Date(Date.now() - 13 * 86400000)));
   const { data: trend = [] } = useDashboardTrend(trendFrom, today);
+  const editPermission = useSetReportEditPermission();
   const exportMutation = useDownloadReportExport({
     from: date,
     to: date,
@@ -66,6 +68,21 @@ export default function AdminDashboardPage() {
       .filter((field) => field.aggregate)
       .map((field) => [field.key, sumCustomField(rows, field.key)]),
   );
+
+  const toggleEditPermission = async (row: DashboardRow) => {
+    if (!row.report_id) return;
+    try {
+      await editPermission.mutateAsync({ id: row.report_id, allow: !row.allow_edit });
+      showToast(
+        'success',
+        row.allow_edit
+          ? 'Editing revoked for this report.'
+          : 'Editing allowed. The branch manager can now correct this report.',
+      );
+    } catch {
+      showToast('error', 'Could not change edit access. Please try again.');
+    }
+  };
 
   const handleExport = async () => {
     try {
@@ -118,6 +135,33 @@ export default function AdminDashboardPage() {
           <Circle className="mx-auto h-5 w-5 text-gray-300" aria-label="No receipt photo" />
         ),
     },
+    {
+      key: 'edit_access',
+      header: 'Edit Access',
+      align: 'center',
+      render: (r) =>
+        r.report_id ? (
+          <Button
+            variant={r.allow_edit ? 'outline' : 'ghost'}
+            size="sm"
+            loading={editPermission.isPending && editPermission.variables?.id === r.report_id}
+            onClick={() => toggleEditPermission(r)}
+            title={r.allow_edit ? 'Revoke edit access' : 'Allow the manager to correct this report'}
+          >
+            {r.allow_edit ? (
+              <>
+                <Lock className="mr-1 h-3.5 w-3.5 text-amber-600" /> Revoke
+              </>
+            ) : (
+              <>
+                <Unlock className="mr-1 h-3.5 w-3.5" /> Allow Edit
+              </>
+            )}
+          </Button>
+        ) : (
+          <span className="text-gray-300">—</span>
+        ),
+    },
   ];
 
   return (
@@ -144,12 +188,12 @@ export default function AdminDashboardPage() {
         </div>
 
         <StatTiles
+          monthTotal={totals.month}
           total={totals.total}
           rooms={totals.rooms}
           bar={totals.bar}
           food={totals.food}
           sauna={totals.sauna}
-          other={totals.other}
         />
 
         <Card className="grid grid-cols-1 gap-3 sm:grid-cols-2">

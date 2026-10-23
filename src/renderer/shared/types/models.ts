@@ -128,6 +128,7 @@ export interface Report {
   manager_name: string | null;
   status: 'Submitted' | 'Pending';
   submitted_at: string | null;
+  allow_edit: boolean;
   custom_values?: CustomValues;
   created_at?: string;
 }
@@ -157,6 +158,7 @@ export interface DashboardRow {
   other_rev: number;
   rooms_occupied: number | null;
   total_rev: number;
+  month_total: number;
   expenses: number;
   net_rev: number;
   cash_handed_over: number;
@@ -172,6 +174,7 @@ export interface DashboardRow {
   report_id: number | null;
   status: 'Submitted' | 'Pending';
   submitted_at: string | null;
+  allow_edit: boolean;
   custom_values?: CustomValues;
 }
 
@@ -188,6 +191,7 @@ export interface DashboardSummary {
   date: string;
   rows: DashboardRow[];
   grand_total: number;
+  month_total: number;
   expenses_total: number;
   net_total: number;
   cash_handed_total: number;

@@ -32,6 +32,8 @@ export const ENDPOINTS = {
     INDEX: '/reports',
     SHOW: (id: number) => `/reports/${id}`,
     SUBMIT: '/reports',
+    UPDATE: (id: number) => `/reports/${id}`,
+    ALLOW_EDIT: (id: number) => `/reports/${id}/allow-edit`,
     EXPORT: '/reports/export',
     DOWNLOAD_ATTACHMENT: (reportId: number, attachmentId: number) =>
       `/reports/${reportId}/attachments/${attachmentId}/download`,

@@ -6,12 +6,14 @@ import {
   HandCoins,
   MessageSquareText,
   Paperclip,
+  Unlock,
 } from 'lucide-react';
 import { AdminShell } from '../../shared/components/layout/AdminShell';
 import { Card } from '../../shared/components/cards/Card';
 import { Button } from '../../shared/components/buttons/Button';
 import { Badge } from '../../shared/components/badges/Badge';
 import { useAdminReport, useDashboardSummary, useDownloadReportExport } from './AdminQueries';
+import { useSetReportEditPermission } from '../report/ReportQueries';
 import { useToast } from '../../app/contexts/useToast';
 import { formatCurrency } from '../../shared/utils/formatCurrency';
 import { formatDate, formatDateTime, toISODate } from '../../shared/utils/formatDateTime';
@@ -236,6 +238,22 @@ export default function AdminReportsPage() {
   const activeId = selectedId ?? submitted[0]?.report_id ?? null;
   const activeRow = submitted.find((row) => row.report_id === activeId) ?? null;
   const { data: report, isLoading: reportLoading } = useAdminReport(activeId);
+  const editPermission = useSetReportEditPermission();
+
+  const toggleEditPermission = async () => {
+    if (!report) return;
+    try {
+      await editPermission.mutateAsync({ id: report.id, allow: !report.allow_edit });
+      showToast(
+        'success',
+        report.allow_edit
+          ? 'Editing revoked. The report is locked again.'
+          : 'Editing allowed. The branch manager can now correct this report.',
+      );
+    } catch {
+      showToast('error', 'Could not change edit access. Please try again.');
+    }
+  };
 
   const handleExport = async () => {
     try {
@@ -319,7 +337,14 @@ export default function AdminReportsPage() {
                   </div>
                   <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
                     <span>Submitted {formatDateTime(row.submitted_at)}</span>
-                    <span>{row.receipt_count + row.expense_receipt_count} files</span>
+                    <span className="flex items-center gap-2">
+                      {row.allow_edit && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-700">
+                          <Unlock className="h-3 w-3" /> Editable
+                        </span>
+                      )}
+                      {row.receipt_count + row.expense_receipt_count} files
+                    </span>
                   </div>
                 </button>
               ))
@@ -344,7 +369,35 @@ export default function AdminReportsPage() {
               ) : reportLoading || !report ? (
                 <p className="py-12 text-center text-sm text-gray-400">Loading report…</p>
               ) : (
-                <ReportDetail report={report} />
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                    <div>
+                      <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                        {report.allow_edit ? (
+                          <>
+                            <Unlock className="h-4 w-4 text-amber-600" /> Editing allowed
+                          </>
+                        ) : (
+                          <>Report locked</>
+                        )}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {report.allow_edit
+                          ? 'The manager can correct this report. Access closes automatically after they save.'
+                          : 'Allow the manager to correct mistakes on this submitted report.'}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={report.allow_edit ? 'outline' : 'primary'}
+                      loading={editPermission.isPending}
+                      onClick={toggleEditPermission}
+                    >
+                      {report.allow_edit ? 'Revoke Edit' : 'Allow Edit'}
+                    </Button>
+                  </div>
+                  <ReportDetail report={report} />
+                </div>
               )}
             </Card>
           </div>

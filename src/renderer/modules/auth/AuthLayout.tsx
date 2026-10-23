@@ -1,6 +1,5 @@
 import type { PropsWithChildren } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2 } from 'lucide-react';
 import {
   DEVELOPER_NAME,
   DEVELOPER_URL,
@@ -44,8 +43,8 @@ export function AuthLayout({
         <div className="absolute inset-0 bg-gradient-to-br from-blue-950/95 via-blue-900/85 to-slate-950/80" />
         <div className="relative z-10 flex flex-col justify-between p-10 xl:p-12 w-full">
           <Link to={ROUTES.LOGIN} className="inline-flex w-fit items-center gap-2.5 group">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 border border-white/15 text-white">
-              <Building2 className="h-5 w-5" />
+            <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-white/30">
+              <img src="/frama-logo.png" alt={`${PRODUCT_NAME} logo`} className="h-full w-full object-cover" />
             </span>
             <span className="text-white text-xl font-bold tracking-tight group-hover:text-blue-100 transition-colors">
               {PRODUCT_NAME}
@@ -100,8 +99,8 @@ export function AuthLayout({
       <div className="flex-1 flex flex-col min-h-screen">
         <header className="flex w-full items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6 sm:py-4 border-b border-gray-200 bg-white/95 backdrop-blur-sm sticky top-0 z-20">
           <Link to={ROUTES.LOGIN} className="inline-flex min-w-0 items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white">
-              <Building2 className="h-5 w-5" />
+            <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-gray-200">
+              <img src="/frama-logo.png" alt={`${PRODUCT_NAME} logo`} className="h-full w-full object-cover" />
             </span>
             <span className="truncate text-lg font-bold text-blue-600 sm:text-xl">{PRODUCT_NAME}</span>
           </Link>

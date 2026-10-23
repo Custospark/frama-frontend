@@ -8,6 +8,7 @@ import {
   Eye,
   Flame,
   HandCoins,
+  Pencil,
   Plus,
   Target,
   Upload,
@@ -163,16 +164,31 @@ export default function ManagerDashboardPage() {
     {
       key: 'status',
       header: 'Status',
-      render: () => <Badge variant="success">Submitted</Badge>,
+      render: (report) =>
+        report.allow_edit ? (
+          <Badge variant="warning">Editable</Badge>
+        ) : (
+          <Badge variant="success">Submitted</Badge>
+        ),
     },
     {
       key: 'action',
       header: '',
       align: 'right',
       render: (report) => (
-        <Button variant="outline" size="sm" onClick={() => setViewing(report)}>
-          <Eye className="mr-1.5 h-4 w-4" /> View
-        </Button>
+        <div className="flex items-center justify-end gap-2">
+          {report.allow_edit && (
+            <Button
+              size="sm"
+              onClick={() => navigate(`${ROUTES.MANAGER.NEW_REPORT}?date=${report.report_date}`)}
+            >
+              <Pencil className="mr-1.5 h-4 w-4" /> Correct
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setViewing(report)}>
+            <Eye className="mr-1.5 h-4 w-4" /> View
+          </Button>
+        </div>
       ),
     },
   ];

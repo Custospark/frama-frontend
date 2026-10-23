@@ -40,7 +40,7 @@ import { formatMoney, parseMoney } from '../../shared/utils/moneyInput';
 import { computeCalculatedFields } from '../../shared/utils/formulaEvaluator';
 import { formatCurrency } from '../../shared/utils/formatCurrency';
 import { formatFileSize } from '../../shared/utils/formatFileSize';
-import type { CustomField, CustomValues } from '../../shared/types/models';
+import type { CustomField, CustomValues, Report } from '../../shared/types/models';
 import type { ReportFormValues } from './ReportQueries';
 import { useMyReports } from './ReportQueries';
 
@@ -55,6 +55,8 @@ interface ReportFormProps {
   todayTotalHint?: string;
   /** A report already exists for the selected date, so it cannot be submitted again. */
   locked?: boolean;
+  /** Existing report being corrected after an executive enabled editing. */
+  editingReport?: Report | null;
 }
 
 type RevenueKey = 'rooms_rev' | 'bar_rev' | 'food_rev' | 'sauna_rev' | 'other_rev';
@@ -240,16 +242,32 @@ function UploadZone({ group, title, files, previews, error, onAdd, onRemove }: U
   );
 }
 
-export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint, locked = false }: ReportFormProps) {
-  const [values, setValues] = useState(EMPTY_VALUES);
-  const [roomsOccupied, setRoomsOccupied] = useState('');
-  const [expectedOverride, setExpectedOverride] = useState<string | undefined>(undefined);
-  const [soFarOverride, setSoFarOverride] = useState<string | undefined>(undefined);
-  const [totalCollected, setTotalCollected] = useState('');
-  const [expenses, setExpenses] = useState('');
-  const [cashHandedOver, setCashHandedOver] = useState('');
-  const [comment, setComment] = useState('');
-  const [customValues, setCustomValues] = useState<CustomValues>({});
+export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadProgress, errorMessage, todayTotalHint, locked = false, editingReport = null }: ReportFormProps) {
+  const editing = editingReport;
+  const money = (value: number | null | undefined) =>
+    value !== null && value !== undefined ? formatMoney(String(value)) : '';
+  const [values, setValues] = useState<Record<RevenueKey, string>>(() =>
+    editing
+      ? {
+          rooms_rev: money(editing.rooms_rev),
+          bar_rev: money(editing.bar_rev),
+          food_rev: money(editing.food_rev),
+          sauna_rev: money(editing.sauna_rev),
+          other_rev: money(editing.other_rev),
+        }
+      : EMPTY_VALUES,
+  );
+  const [roomsOccupied, setRoomsOccupied] = useState(editing?.rooms_occupied?.toString() ?? '');
+  const [expectedOverride, setExpectedOverride] = useState<string | undefined>(
+    editing?.amount_expected_semester !== null && editing?.amount_expected_semester !== undefined
+      ? formatMoney(String(editing.amount_expected_semester))
+      : undefined,
+  );
+  const [totalCollected, setTotalCollected] = useState(money(editing?.total_rev));
+  const [expenses, setExpenses] = useState(money(editing?.expenses));
+  const [cashHandedOver, setCashHandedOver] = useState(money(editing?.cash_handed_over));
+  const [comment, setComment] = useState(editing?.comment ?? '');
+  const [customValues, setCustomValues] = useState<CustomValues>(editing?.custom_values ?? {});
   const [receiptFiles, setReceiptFiles] = useState<File[]>([]);
   const [expenseFiles, setExpenseFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<Record<string, string>>({});
@@ -260,7 +278,7 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
 
   const { data: businessTypes = [] } = useBusinessTypes(true);
   const { data: customFields = [] } = useCustomFields('report');
-  const { data: reports = [] } = useMyReports();
+  const { data: reports = [] } = useMyReports({ per_page: 100 });
   const { user } = useAuth();
   const { showToast } = useToast();
   const deleteField = useDeleteCustomField();
@@ -273,13 +291,14 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
   const branchName = user?.branch?.branch_name ?? 'Branch';
   const managerName = user?.name ?? '';
 
-  // Semester figures rarely change: carry the latest submitted values forward
-  // and let managers override them when they do change.
+  // Semester expectations carry forward from reports before the selected date.
+  // Collections are cumulative and read-only: prior total + today's collection.
   const carriedSemester = useMemo(() => {
-    const expected = reports.find(
+    const prior = reports.filter((report) => report.report_date.slice(0, 10) < date);
+    const expected = prior.find(
       (report) => report.amount_expected_semester !== null && report.amount_expected_semester !== undefined,
     );
-    const soFar = reports.find(
+    const soFar = prior.find(
       (report) => report.collected_so_far !== null && report.collected_so_far !== undefined,
     );
 
@@ -287,18 +306,13 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
       amountExpected: expected?.amount_expected_semester ?? null,
       collectedSoFar: soFar?.collected_so_far ?? null,
     };
-  }, [reports]);
+  }, [reports, date]);
 
   const expectedInput =
     expectedOverride
     ?? (carriedSemester.amountExpected !== null ? formatMoney(String(carriedSemester.amountExpected)) : '');
-  const soFarInput =
-    soFarOverride
-    ?? (carriedSemester.collectedSoFar !== null ? formatMoney(String(carriedSemester.collectedSoFar)) : '');
   const expectedSemesterValue = expectedInput.trim() !== '' ? parseMoney(expectedInput) : null;
-  const collectedSoFarValue = soFarInput.trim() !== '' ? parseMoney(soFarInput) : null;
-  const balanceRemaining =
-    expectedSemesterValue !== null ? expectedSemesterValue - (collectedSoFarValue ?? 0) : null;
+  const collectedBaseline = carriedSemester.collectedSoFar ?? 0;
 
   const activeTypeIds = useMemo(() => (branchTypeId ? [branchTypeId] : []), [branchTypeId]);
 
@@ -351,6 +365,10 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
         : REVENUE_FIELDS.reduce((sum, field) => sum + parseMoney(values[field.key] || '0'), 0),
     [isHostel, totalCollected, values],
   );
+
+  const projectedCollectedSoFar = collectedBaseline + total;
+  const balanceRemaining =
+    expectedSemesterValue !== null ? expectedSemesterValue - projectedCollectedSoFar : null;
 
   /** Numeric context for calculated-field previews (mirrors the server's base vars). */
   const formulaContext = useMemo(() => {
@@ -441,12 +459,12 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
     if (expenses.trim() === '') next.expenses = 'Enter expenses (use 0 if none).';
     if (cashHandedOver.trim() === '') next.cash_handed_over = 'Enter the cash handed over.';
 
-    if (receiptFiles.length === 0) {
+    if (!editing && receiptFiles.length === 0) {
       next.receipt_photos = 'Attach at least one receipt photo.';
     } else if (receiptFiles.length > ATTACHMENT_LIMIT) {
       next.receipt_photos = `You can attach at most ${ATTACHMENT_LIMIT} files.`;
     }
-    if (expenseFiles.length === 0) {
+    if (!editing && expenseFiles.length === 0) {
       next.expense_receipts = 'Attach at least one expense receipt.';
     } else if (expenseFiles.length > ATTACHMENT_LIMIT) {
       next.expense_receipts = `You can attach at most ${ATTACHMENT_LIMIT} files.`;
@@ -487,7 +505,6 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
             ...common,
             rooms_occupied: Number(roomsOccupied),
             amount_expected_semester: expectedSemesterValue ?? undefined,
-            collected_so_far: collectedSoFarValue ?? undefined,
             total_rev: parseMoney(totalCollected || '0'),
           }
         : {
@@ -541,17 +558,13 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
               {errors.total_rev && <p className="mt-1 text-xs text-red-600">{errors.total_rev}</p>}
             </div>
             <div>
-              <label htmlFor="collected_so_far" className="text-xs font-medium text-gray-500">
-                Money Collected So Far
-              </label>
-              <input
-                id="collected_so_far"
-                inputMode="numeric"
-                value={soFarInput}
-                onChange={(e) => setSoFarOverride(formatMoney(e.target.value))}
-                placeholder="0"
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-right text-lg font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-              />
+              <p className="text-xs font-medium text-gray-500">Total Collected So Far</p>
+              <p className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-right text-lg font-semibold text-gray-900">
+                {formatCurrency(projectedCollectedSoFar)}
+              </p>
+              <p className="mt-1 text-[11px] text-gray-400">
+                Previous total + money collected today (calculated automatically).
+              </p>
             </div>
             <div>
               <p className="text-xs font-medium text-gray-500">Balance Remaining</p>
@@ -584,7 +597,8 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
               type="date"
               value={date}
               onChange={(e) => onDateChange(e.target.value)}
-              className={formInputClass}
+              disabled={Boolean(editing)}
+              className={`${formInputClass} ${editing ? 'bg-gray-50 text-gray-600' : ''}`}
             />
           </FormField>
           <FormField label="Manager Name" icon={User} required>
@@ -747,7 +761,11 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
       <FormSection
         title="Uploads"
         icon={ImageIcon}
-        description="Both uploads are required. Add photos directly, a folder (zipped automatically) or a ready-made zip."
+        description={
+          editing
+            ? 'Existing attachments are kept. Add new photos only if you are replacing or adding evidence.'
+            : 'Both uploads are required. Add photos directly, a folder (zipped automatically) or a ready-made zip.'
+        }
       >
         <UploadZone
           group="receipt"
@@ -818,7 +836,15 @@ export function ReportForm({ date, onDateChange, onSubmit, submitting, uploadPro
             disabled={locked}
             className={submitting ? 'shrink-0' : 'ml-auto w-full sm:w-auto'}
           >
-            {locked ? 'Already submitted' : submitting ? 'Submitting…' : 'Submit'}
+            {locked
+              ? 'Already submitted'
+              : submitting
+                ? editing
+                  ? 'Saving…'
+                  : 'Submitting…'
+                : editing
+                  ? 'Save corrections'
+                  : 'Submit'}
           </Button>
         </div>
       </FormFooter>

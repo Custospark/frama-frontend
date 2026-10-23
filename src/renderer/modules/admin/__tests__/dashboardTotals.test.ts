@@ -16,6 +16,7 @@ function row(overrides: Partial<DashboardRow>): DashboardRow {
     other_rev: 0,
     rooms_occupied: null,
     total_rev: 0,
+    month_total: 0,
     expenses: 0,
     net_rev: 0,
     cash_handed_over: 0,
@@ -30,6 +31,7 @@ function row(overrides: Partial<DashboardRow>): DashboardRow {
     report_id: 1,
     status: 'Submitted',
     submitted_at: null,
+    allow_edit: false,
     custom_values: {},
     ...overrides,
   };
@@ -38,8 +40,8 @@ function row(overrides: Partial<DashboardRow>): DashboardRow {
 describe('sumDashboardRows', () => {
   it('sums every money column across submitted rows', () => {
     const totals = sumDashboardRows([
-      row({ rooms_rev: 120000, bar_rev: 60000, food_rev: 80000, sauna_rev: 0, other_rev: 10000, total_rev: 270000, expenses: 20000, cash_handed_over: 250000 }),
-      row({ rooms_rev: 100000, bar_rev: 0, food_rev: 50000, sauna_rev: 25000, other_rev: 5000, total_rev: 180000, expenses: 30000, cash_handed_over: 150000 }),
+      row({ rooms_rev: 120000, bar_rev: 60000, food_rev: 80000, sauna_rev: 0, other_rev: 10000, total_rev: 270000, month_total: 820000, expenses: 20000, cash_handed_over: 250000 }),
+      row({ rooms_rev: 100000, bar_rev: 0, food_rev: 50000, sauna_rev: 25000, other_rev: 5000, total_rev: 180000, month_total: 410000, expenses: 30000, cash_handed_over: 150000 }),
     ]);
 
     expect(totals).toEqual({
@@ -49,6 +51,7 @@ describe('sumDashboardRows', () => {
       sauna: 25000,
       other: 15000,
       total: 450000,
+      month: 1230000,
       expenses: 50000,
       cash: 400000,
     });
@@ -66,6 +69,17 @@ describe('sumDashboardRows', () => {
 
   it('returns zeroes for an empty result set', () => {
     expect(sumDashboardRows([]).total).toBe(0);
+    expect(sumDashboardRows([]).month).toBe(0);
+  });
+
+  it('sums the month totals so the card follows the branch filter', () => {
+    const totals = sumDashboardRows([
+      row({ branch_id: 1, month_total: 820000 }),
+      row({ branch_id: 2, month_total: 410000 }),
+      row({ branch_id: 2, report_id: null, status: 'Pending' }),
+    ]);
+
+    expect(totals.month).toBe(1230000);
   });
 
   it('keeps the table total in sync with the sum of the rows', () => {

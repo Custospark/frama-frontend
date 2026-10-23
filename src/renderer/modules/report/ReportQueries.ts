@@ -22,7 +22,6 @@ export interface ReportFormValues {
   other_rev?: number;
   rooms_occupied?: number;
   amount_expected_semester?: number;
-  collected_so_far?: number;
   total_rev?: number;
   expenses: number;
   cash_handed_over: number;
@@ -46,55 +45,67 @@ export function useMyReports(params?: { from?: string; to?: string; per_page?: n
   });
 }
 
-/** Manager: submit (or replace) today's report for their own branch.
- *  Exposes `progress` (0–100) while the multipart upload is in flight. */
+function buildReportForm(values: ReportFormValues): FormData {
+  const form = new FormData();
+  form.append('report_date', values.report_date);
+
+  const financials: Array<[string, number | undefined]> = [
+    ['rooms_rev', values.rooms_rev],
+    ['bar_rev', values.bar_rev],
+    ['food_rev', values.food_rev],
+    ['sauna_rev', values.sauna_rev],
+    ['other_rev', values.other_rev],
+    ['rooms_occupied', values.rooms_occupied],
+    ['amount_expected_semester', values.amount_expected_semester],
+    ['total_rev', values.total_rev],
+  ];
+  financials.forEach(([key, value]) => {
+    if (value !== undefined) form.append(key, String(value));
+  });
+
+  form.append('expenses', String(values.expenses));
+  form.append('cash_handed_over', String(values.cash_handed_over));
+  if (values.comment !== null && values.comment !== undefined && values.comment !== '') {
+    form.append('comment', values.comment);
+  }
+  values.business_type_ids.forEach((id) => {
+    form.append('business_type_ids[]', String(id));
+  });
+  values.receipt_photos.forEach((file) => {
+    form.append('receipt_photos[]', file);
+  });
+  values.expense_receipts.forEach((file) => {
+    form.append('expense_receipts[]', file);
+  });
+
+  Object.entries(values.custom_values ?? {}).forEach(([key, value]) => {
+    if (value instanceof File) {
+      form.append(`custom_values[${key}]`, value);
+    } else if (value !== null && value !== undefined && value !== '') {
+      form.append(`custom_values[${key}]`, String(value));
+    }
+  });
+
+  return form;
+}
+
+function uploadProgressHandler(setProgress: (value: number) => void) {
+  return (event: { total?: number; loaded: number }) => {
+    if (event.total && event.total > 0) {
+      setProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+    }
+  };
+}
+
+/** Manager: submit today's report for their own branch. Exposes `progress`
+ *  (0–100) while the multipart upload is in flight. */
 export function useSubmitReport() {
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState<number | null>(null);
 
   const mutation = useMutation({
     mutationFn: async (values: ReportFormValues): Promise<Report> => {
-      const form = new FormData();
-      form.append('report_date', values.report_date);
-
-      const financials: Array<[string, number | undefined]> = [
-        ['rooms_rev', values.rooms_rev],
-        ['bar_rev', values.bar_rev],
-        ['food_rev', values.food_rev],
-        ['sauna_rev', values.sauna_rev],
-        ['other_rev', values.other_rev],
-        ['rooms_occupied', values.rooms_occupied],
-        ['amount_expected_semester', values.amount_expected_semester],
-        ['collected_so_far', values.collected_so_far],
-        ['total_rev', values.total_rev],
-      ];
-      financials.forEach(([key, value]) => {
-        if (value !== undefined) form.append(key, String(value));
-      });
-
-      form.append('expenses', String(values.expenses));
-      form.append('cash_handed_over', String(values.cash_handed_over));
-      if (values.comment !== null && values.comment !== undefined && values.comment !== '') {
-        form.append('comment', values.comment);
-      }
-      values.business_type_ids.forEach((id) => {
-        form.append('business_type_ids[]', String(id));
-      });
-      values.receipt_photos.forEach((file) => {
-        form.append('receipt_photos[]', file);
-      });
-      values.expense_receipts.forEach((file) => {
-        form.append('expense_receipts[]', file);
-      });
-
-      Object.entries(values.custom_values ?? {}).forEach(([key, value]) => {
-        if (value instanceof File) {
-          form.append(`custom_values[${key}]`, value);
-        } else if (value !== null && value !== undefined && value !== '') {
-          form.append(`custom_values[${key}]`, String(value));
-        }
-      });
-
+      const form = buildReportForm(values);
       setProgress(0);
 
       const { data } = await axiosInstance.post<{ data: Report }>(
@@ -102,11 +113,7 @@ export function useSubmitReport() {
         form,
         {
           timeout: UPLOAD_TIMEOUT,
-          onUploadProgress: (event) => {
-            if (event.total && event.total > 0) {
-              setProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
-            }
-          },
+          onUploadProgress: uploadProgressHandler(setProgress),
         },
       );
       setProgress(100);
@@ -121,6 +128,58 @@ export function useSubmitReport() {
   });
 
   return { ...mutation, progress };
+}
+
+/** Manager: save corrections to a report while the office has enabled edits. */
+export function useUpdateReport() {
+  const queryClient = useQueryClient();
+  const [progress, setProgress] = useState<number | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: async ({ id, values }: { id: number; values: ReportFormValues }): Promise<Report> => {
+      const form = buildReportForm(values);
+      setProgress(0);
+
+      const { data } = await axiosInstance.post<{ data: Report }>(
+        ENDPOINTS.REPORTS.UPDATE(id),
+        form,
+        {
+          timeout: UPLOAD_TIMEOUT,
+          onUploadProgress: uploadProgressHandler(setProgress),
+        },
+      );
+      setProgress(100);
+      return data.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: reportKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['admin'] });
+    },
+    onSettled: () => {
+      setProgress(null);
+    },
+  });
+
+  return { ...mutation, progress };
+}
+
+/** Executive/platform admin: grant or revoke a manager's edit access. */
+export function useSetReportEditPermission() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, allow }: { id: number; allow: boolean }): Promise<Report> => {
+      const { data } = await axiosInstance.post<{ data: Report }>(
+        ENDPOINTS.REPORTS.ALLOW_EDIT(id),
+        { allow_edit: allow },
+      );
+      return data.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: reportKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ['admin'] });
+    },
+  });
 }
 
 /** Download a single attachment as a blob. */

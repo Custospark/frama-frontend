@@ -1,4 +1,3 @@
-import { Building2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { PRODUCT_NAME, TAGLINE } from '../../brand/framaBrand';
 
@@ -19,14 +18,8 @@ const LOGO_BOX: Record<'sm' | 'md' | 'lg', string> = {
   lg: 'h-12 w-12',
 };
 
-const LOGO_ICON: Record<'sm' | 'md' | 'lg', string> = {
-  sm: 'h-5 w-5',
-  md: 'h-5 w-5',
-  lg: 'h-6 w-6',
-};
-
 /**
- * Frama Investments product lockup - rounded blue logo mark + wordmark
+ * Frama Investments product lockup - circular Frama logo + wordmark
  * (+ optional tagline), mirroring the Custosell shell branding treatment.
  * Used in the sidebar header and the top header so branding stays consistent.
  */
@@ -44,11 +37,15 @@ export function FramaBrandLockup({
     >
       <span
         className={cn(
-          'flex shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm',
+          'flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-gray-200',
           LOGO_BOX[logoSize],
         )}
       >
-        <Building2 className={LOGO_ICON[logoSize]} />
+        <img
+          src="/frama-logo.png"
+          alt={`${PRODUCT_NAME} logo`}
+          className="h-full w-full object-cover"
+        />
       </span>
       <div className="min-w-0 leading-tight">
         <span className={cn('block truncate text-lg font-bold text-blue-600', stacked && 'w-full', nameClassName)}>
